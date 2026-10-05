@@ -220,7 +220,7 @@ app.get('/api/track', (req, res) => {
   for (const o of orders) o.items = db.prepare('SELECT name_en, name_ur, price, qty FROM order_items WHERE order_id=?').all(o.id);
   res.json(orders);
 });
-app.get('/api/version', (req, res) => res.json({ app: 'fakhta-store', version: '1.2.1' }));
+app.get('/api/version', (req, res) => res.json({ app: 'fakhta-store', version: '1.2.2' }));
 
 // ---------- GitHub webhook auto-deploy (push to main → git pull) ----------
 app.post('/api/deploy', (req, res) => {

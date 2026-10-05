@@ -366,7 +366,6 @@ function adminShell(active, body) {
 function renderAdminLogin() {
   view.innerHTML = `<div class="login-card">
     <img src="logo.png"><h2>Fakhta Admin</h2>
-    <div class="warn">⚠️ Default password is <b>fakhta123</b> — change it after first login (🔑 Password tab).</div>
     <div class="field"><input type="password" id="apw" placeholder="Password" onkeydown="if(event.key==='Enter')adminLogin()"></div>
     <button class="btn-gold btn-block" onclick="adminLogin()">Login</button></div>`;
 }
