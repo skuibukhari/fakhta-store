@@ -210,10 +210,12 @@ async function renderHome() {
   const cats = CATS, feat = PRODS.filter(p => p.featured);
   view.innerHTML = `
   <section class="hero hero-video">
-    <img class="hero-bg" src="hero-royal.jpg" alt="Fakhta">
+    <video class="hero-bg" autoplay muted loop playsinline preload="metadata" poster="hero-dove-poster.jpg">
+      <source src="hero-dove.mp4" type="video/mp4">
+    </video>
     <div class="hero-overlay"></div>
     <div class="hero-content">
-      <h1>${esc(T('slogan'))}</h1>
+      <h1>${esc(T('slogan')).replace(/[,،](.+)/,'<br><span class="hl">$1</span>')}</h1>
       <p>${esc(T('hero_sub'))}</p>
       <div class="cta-row">
         <button class="btn-gold" onclick="location.hash='#/shop'">${esc(T('hero_cta'))}</button>
