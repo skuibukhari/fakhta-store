@@ -117,14 +117,36 @@ seed();
 
 // ---------- app ----------
 const app = express();
+
+// ---- sub-path support (e.g. BASE_PATH=/fakhta on Alwaysdata) ----
+// The reverse proxy forwards the full path (/fakhta/api/...); strip the
+// prefix first so the whole app keeps working as if it were at the root.
+const B = (process.env.BASE_PATH || '').replace(/\/+$/, '');
+if (B) app.use((req, res, next) => {
+  if (req.url === B) req.url = '/';
+  else if (req.url.startsWith(B + '/')) req.url = req.url.slice(B.length);
+  next();
+});
+
 app.use(express.json({ limit: '2mb', verify: (req, _res, buf) => { req.rawBody = buf; } }));
 app.use(express.urlencoded({ extended: true }));
 app.use(session({
+  name: 'fakhta.sid',
   secret: sGet('sess_secret') || (() => { const s = crypto.randomBytes(32).toString('hex'); sSet('sess_secret', s); return s; })(),
   resave: false, saveUninitialized: false,
   cookie: { maxAge: 12 * 3600 * 1000, httpOnly: true }
 }));
-app.use(express.static(path.join(__dirname, 'public')));
+// ---- index.html with <base> injection + dynamic manifest (sub-path support) ----
+const indexHtml = fs.readFileSync(path.join(__dirname, 'public', 'index.html'), 'utf8');
+function sendIndex(res) {
+  res.type('html').send(B ? indexHtml.replace('<head>', `<head><base href="${B}/">`) : indexHtml);
+}
+app.get('/manifest.json', (req, res) => {
+  const m = JSON.parse(fs.readFileSync(path.join(__dirname, 'public', 'manifest.json'), 'utf8'));
+  if (B) { m.start_url = B + '/'; m.scope = B + '/'; m.id = B + '/'; }
+  res.json(m);
+});
+app.use(express.static(path.join(__dirname, 'public'), { index: false }));
 
 // image uploads
 const uploadDir = path.join(__dirname, 'public', 'products');
@@ -198,7 +220,7 @@ app.get('/api/track', (req, res) => {
   for (const o of orders) o.items = db.prepare('SELECT name_en, name_ur, price, qty FROM order_items WHERE order_id=?').all(o.id);
   res.json(orders);
 });
-app.get('/api/version', (req, res) => res.json({ app: 'fakhta-store', version: '1.2.0' }));
+app.get('/api/version', (req, res) => res.json({ app: 'fakhta-store', version: '1.2.1' }));
 
 // ---------- GitHub webhook auto-deploy (push to main → git pull) ----------
 app.post('/api/deploy', (req, res) => {
@@ -347,10 +369,11 @@ app.post('/api/admin/upload', requireAdmin, upload.single('image'), (req, res) =
 });
 
 // admin page + SPA fallback
-app.get('/admin', (req, res) => res.sendFile(path.join(__dirname, 'public', 'admin.html')));
+app.get('/admin', (req, res) => sendIndex(res));
+app.get('/', (req, res) => sendIndex(res));
 app.get('*', (req, res, next) => {
   if (req.path.startsWith('/api/')) return next();
-  res.sendFile(path.join(__dirname, 'public', 'index.html'));
+  sendIndex(res);
 });
 
 app.listen(PORT, () => console.log(`[fakhta] listening on :${PORT}`));

@@ -1,4 +1,12 @@
 /* Fakhta storefront + admin — bilingual (EN/UR) SPA */
+// ---- sub-path support: server injects <base href="/fakhta/"> when BASE_PATH is set ----
+const BASE = (document.querySelector('base')?.getAttribute('href') || '/').replace(/\/$/, '');
+if (BASE) {
+  const _fetch = window.fetch.bind(window);
+  window.fetch = (u, o) => _fetch(typeof u === 'string' && u.startsWith('/') ? BASE + u : u, o);
+}
+// relativize "/x" -> "x" so asset URLs resolve against <base>
+const rel = p => String(p || '').replace(/^\//, '');
 const I18N = {
 en: {
   nav_home:'Home', nav_shop:'Shop', nav_track:'Track Order', nav_cart:'Cart',
@@ -136,7 +144,7 @@ window.addEventListener('hashchange', nav);
 // ---------- storefront views ----------
 function prodCard(p) {
   return `<div class="prod-card" onclick="location.hash='#/product/${p.id}'">
-    <img src="${esc(p.image || '/logo.png')}" alt="${esc(pname(p))}" loading="lazy" onerror="this.src='/logo.png'">
+    <img src="${esc(rel(p.image) || 'logo.png')}" alt="${esc(pname(p))}" loading="lazy" onerror="this.src='logo.png'">
     <div class="prod-body">
       <h3>${esc(pname(p))}</h3>
       <div class="prod-price">${fmt(p.price)}${p.old_price > p.price ? `<s>${fmt(p.old_price)}</s>` : ''}</div>
@@ -148,8 +156,8 @@ async function renderHome() {
   const cats = CATS, feat = PRODS.filter(p => p.featured);
   view.innerHTML = `
   <section class="hero hero-video">
-    <video class="hero-bg" autoplay muted loop playsinline preload="metadata" poster="/hero-dove-poster.jpg">
-      <source src="/hero-dove.mp4" type="video/mp4">
+    <video class="hero-bg" autoplay muted loop playsinline preload="metadata" poster="hero-dove-poster.jpg">
+      <source src="hero-dove.mp4" type="video/mp4">
     </video>
     <div class="hero-overlay"></div>
     <div class="hero-content">
@@ -214,7 +222,7 @@ async function renderProduct(id) {
   view.innerHTML = `
   <section class="section" style="margin-top:6px">
     <div class="pd">
-      <img class="main" src="${esc(p.image || '/logo.png')}" alt="${esc(pname(p))}" onerror="this.src='/logo.png'">
+      <img class="main" src="${esc(rel(p.image) || 'logo.png')}" alt="${esc(pname(p))}" onerror="this.src='logo.png'">
       <div>
         <h1>${esc(pname(p))}</h1>
         <div class="stars">${stars(4.8)} <span style="color:var(--ink-dim);font-size:.85rem">4.8</span></div>
@@ -316,7 +324,7 @@ function renderCart() {
   if (!cart.length) box.innerHTML = `<p class="empty">${esc(T('cart_empty'))}</p>`;
   else box.innerHTML = cart.map((i, ix) => `
     <div class="ci">
-      <img src="${esc(i.image || '/logo.png')}" onerror="this.src='/logo.png'">
+      <img src="${esc(rel(i.image) || 'logo.png')}" onerror="this.src='logo.png'">
       <div class="ci-info"><b>${esc(LANG === 'ur' && i.name_ur ? i.name_ur : i.name_en)}</b><span>${fmt(i.price)}</span></div>
       <div class="qty"><button onclick="chQty(${ix},-1)">−</button><span>${i.qty}</span><button onclick="chQty(${ix},1)">+</button></div>
       <button class="rm" onclick="rmItem(${ix})">🗑</button>
@@ -357,7 +365,7 @@ function adminShell(active, body) {
 }
 function renderAdminLogin() {
   view.innerHTML = `<div class="login-card">
-    <img src="/logo.png"><h2>Fakhta Admin</h2>
+    <img src="logo.png"><h2>Fakhta Admin</h2>
     <div class="warn">⚠️ Default password is <b>fakhta123</b> — change it after first login (🔑 Password tab).</div>
     <div class="field"><input type="password" id="apw" placeholder="Password" onkeydown="if(event.key==='Enter')adminLogin()"></div>
     <button class="btn-gold btn-block" onclick="adminLogin()">Login</button></div>`;
@@ -445,7 +453,7 @@ async function adminProducts() {
   adminShell('products', `
     <button class="btn-gold" style="margin-bottom:14px" onclick="prodForm()">+ Add Product</button>
     <div style="overflow-x:auto"><table class="tbl"><tr><th></th><th>Name</th><th>Category</th><th>Price</th><th>Stock</th><th>★</th><th></th></tr>
-    ${list.map(p => `<tr><td><img class="thumb" src="${esc(p.image || '/logo.png')}" onerror="this.src='/logo.png'"></td>
+    ${list.map(p => `<tr><td><img class="thumb" src="${esc(rel(p.image) || 'logo.png')}" onerror="this.src='logo.png'"></td>
       <td><b>${esc(p.name_en)}</b><br><small style="color:var(--ink-dim)">${esc(p.name_ur)}</small></td>
       <td>${esc(p.cat_en || '—')}</td><td>${fmt(p.price)}</td><td>${p.stock}</td><td>${p.featured ? '⭐' : ''}</td>
       <td><button class="btn-ghost" style="padding:6px 12px" onclick='prodForm(${JSON.stringify(p).replace(/'/g, "&#39;")})'>Edit</button>
@@ -472,7 +480,7 @@ function prodForm(p) {
     <div class="field"><label>Description (EN)</label><textarea id="pf_de" rows="2">${esc(p.desc_en || '')}</textarea></div>
     <div class="field"><label>Description (UR)</label><textarea id="pf_du" rows="2">${esc(p.desc_ur || '')}</textarea></div>
     <div class="field"><label>Image</label>
-      <div style="display:flex;gap:10px"><input id="pf_img" value="${esc(p.image || '')}" placeholder="/products/p1.jpg" style="flex:1">
+      <div style="display:flex;gap:10px"><input id="pf_img" value="${esc(p.image || '')}" placeholder="products/p1.jpg" style="flex:1">
       <label class="btn-ghost" style="padding:10px 16px;cursor:pointer">📤<input type="file" id="pf_file" accept="image/*" style="display:none"></label></div>
       <small style="color:var(--ink-dim)">Upload or paste image URL/path</small></div>
     <div class="row2">

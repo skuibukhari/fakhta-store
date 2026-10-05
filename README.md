@@ -40,3 +40,16 @@ products CRUD (bilingual, image upload, featured, stock), categories CRUD, passw
 ## Deploy (Alwaysdata, same as Gulshan Factory)
 Push to a GitHub repo → webhook auto-pull → panel Restart (server.js).
 SQLite file lives in `./data/fakhta.db` (created on boot with seed data).
+
+### Sub-path install (BASE_PATH)
+When the site runs under a path like `kashf.alwaysdata.net/fakhta` (separate
+Alwaysdata site whose address is `kashf.alwaysdata.net/fakhta`), set the env var:
+
+```
+BASE_PATH=/fakhta
+```
+
+The server strips the prefix internally, injects `<base href="/fakhta/">` into
+the storefront, serves a matching manifest, and the frontend prefixes API calls
+automatically. Leave BASE_PATH empty to serve from the domain root.
+Webhook URL in that setup: `https://kashf.alwaysdata.net/fakhta/api/deploy`.
