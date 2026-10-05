@@ -65,6 +65,9 @@ for (const col of ['courier', 'tracking_no']) {
   try { db.exec(`ALTER TABLE orders ADD COLUMN ${col} TEXT NOT NULL DEFAULT ''`); }
   catch (e) { /* column already exists */ }
 }
+// v1.3 migration: order source (online/manual/whatsapp)
+try { db.exec(`ALTER TABLE orders ADD COLUMN source TEXT NOT NULL DEFAULT 'online'`); }
+catch (e) { /* column already exists */ }
 
 // ---------- seed data ----------
 function seed() {
@@ -189,7 +192,8 @@ app.get('/api/products/:id', (req, res) => {
   res.json(p);
 });
 app.post('/api/orders', (req, res) => {
-  const { customer_name, phone, address, city, notes, items } = req.body || {};
+  const { customer_name, phone, address, city, notes, items, source } = req.body || {};
+  const src = ['online', 'manual', 'whatsapp'].includes(source) ? source : 'online';
   if (!customer_name || !String(customer_name).trim()) return res.status(400).json({ error: 'name_required' });
   const ph = String(phone || '').replace(/[\s-]/g, '');
   if (!/^03\d{9}$/.test(ph)) return res.status(400).json({ error: 'phone_invalid' });
@@ -207,8 +211,8 @@ app.post('/api/orders', (req, res) => {
     subtotal += p.price * qty;
   }
   const no = orderNo();
-  const info = db.prepare(`INSERT INTO orders (order_no, customer_name, phone, address, city, notes, subtotal)
-    VALUES (?,?,?,?,?,?,?)`).run(no, String(customer_name).trim(), ph, String(address).trim(), String(city).trim(), String(notes || '').trim(), subtotal);
+  const info = db.prepare(`INSERT INTO orders (order_no, customer_name, phone, address, city, notes, subtotal, source)
+    VALUES (?,?,?,?,?,?,?,?)`).run(no, String(customer_name).trim(), ph, String(address).trim(), String(city).trim(), String(notes || '').trim(), subtotal, src);
   const iins = db.prepare('INSERT INTO order_items (order_id, product_id, name_en, name_ur, price, qty) VALUES (?,?,?,?,?,?)');
   for (const l of lines) iins.run(info.lastInsertRowid, l.product_id, l.name_en, l.name_ur, l.price, l.qty);
   res.json({ ok: true, order_no: no, subtotal });
@@ -216,11 +220,16 @@ app.post('/api/orders', (req, res) => {
 app.get('/api/track', (req, res) => {
   const ph = String(req.query.phone || '').replace(/[\s-]/g, '');
   if (!/^03\d{9}$/.test(ph)) return res.status(400).json({ error: 'phone_invalid' });
-  const orders = db.prepare('SELECT id, order_no, customer_name, subtotal, status, courier, tracking_no, created_at FROM orders WHERE phone=? ORDER BY id DESC LIMIT 20').all(ph);
+  const orders = db.prepare('SELECT id, order_no, customer_name, phone, address, city, subtotal, status, courier, tracking_no, created_at FROM orders WHERE phone=? ORDER BY id DESC LIMIT 20').all(ph);
   for (const o of orders) o.items = db.prepare('SELECT name_en, name_ur, price, qty FROM order_items WHERE order_id=?').all(o.id);
   res.json(orders);
 });
-app.get('/api/version', (req, res) => res.json({ app: 'fakhta-store', version: '1.2.2' }));
+app.get('/api/version', (req, res) => res.json({ app: 'fakhta-store', version: '1.3.0' }));
+
+// ---- public store info (WhatsApp / contact number, set by admin) ----
+app.get('/api/store-info', (req, res) => {
+  res.json({ whatsapp: sGet('store_whatsapp'), phone: sGet('store_phone'), name: 'Fakhta' });
+});
 
 // ---------- GitHub webhook auto-deploy (push to main → git pull) ----------
 app.post('/api/deploy', (req, res) => {
@@ -260,6 +269,38 @@ app.post('/api/admin/change-password', requireAdmin, (req, res) => {
 });
 
 // ---------- admin APIs ----------
+
+// store settings (WhatsApp / phone shown on site; admin sets, never hardcoded)
+app.get('/api/admin/settings', requireAdmin, (req, res) => {
+  res.json({ store_whatsapp: sGet('store_whatsapp'), store_phone: sGet('store_phone') });
+});
+app.put('/api/admin/settings', requireAdmin, (req, res) => {
+  const b = req.body || {};
+  if (b.store_whatsapp !== undefined) sSet('store_whatsapp', String(b.store_whatsapp).replace(/[^\d]/g, '').slice(0, 15));
+  if (b.store_phone !== undefined) sSet('store_phone', String(b.store_phone).slice(0, 30));
+  res.json({ ok: true });
+});
+
+// date-wise sales report / ledger
+app.get('/api/admin/reports', requireAdmin, (req, res) => {
+  const from = String(req.query.from || '').slice(0, 10);
+  const to = String(req.query.to || '').slice(0, 10);
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(from) || !/^\d{4}-\d{2}-\d{2}$/.test(to))
+    return res.status(400).json({ error: 'bad_range' });
+  const days = db.prepare(
+    `SELECT date(created_at) d, COUNT(*) orders, COALESCE(SUM(subtotal),0) revenue
+     FROM orders WHERE date(created_at) BETWEEN ? AND ? GROUP BY d ORDER BY d`
+  ).all(from, to);
+  const orders = db.prepare(
+    `SELECT id, order_no, customer_name, phone, city, subtotal, status, source, date(created_at) d, created_at
+     FROM orders WHERE date(created_at) BETWEEN ? AND ? ORDER BY id DESC`
+  ).all(from, to);
+  const tot = db.prepare(
+    `SELECT COUNT(*) orders, COALESCE(SUM(subtotal),0) revenue FROM orders WHERE date(created_at) BETWEEN ? AND ?`
+  ).get(from, to);
+  res.json({ from, to, days, orders, total_orders: tot.orders, total_revenue: tot.revenue });
+});
+
 app.get('/api/admin/dashboard', requireAdmin, (req, res) => {
   const g = (sql, ...a) => db.prepare(sql).get(...a);
   res.json({

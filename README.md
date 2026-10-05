@@ -37,6 +37,13 @@ order success + order number, order tracking by phone. EN/اردو toggle (RTL +
 **Admin:** dashboard (order counts, revenue), orders (status workflow),
 products CRUD (bilingual, image upload, featured, stock), categories CRUD, password change.
 
+## v1.3.0 features
+- 🧾 Printable Bill/Invoice per order (invoice no = order no), customer + admin
+- 📱 WhatsApp: "Ask on WhatsApp" on products, bill sharing from admin, number in footer (admin sets it in ⚙️ Settings — never hardcoded)
+- 📝 Manual order entry (admin) for WhatsApp/phone orders (source badge)
+- 📊 Date-wise sales report / ledger with day-wise + totals, print-friendly
+- 🎛️ Colorful admin dashboard (gradient stat cards)
+
 ## Deploy (Alwaysdata, same as Gulshan Factory)
 Push to a GitHub repo → webhook auto-pull → panel Restart (server.js).
 SQLite file lives in `./data/fakhta.db` (created on boot with seed data).

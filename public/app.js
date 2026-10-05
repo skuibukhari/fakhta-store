@@ -36,6 +36,7 @@ en: {
   ph_name:'e.g. Ahmed Raza', ph_phone:'03xxxxxxxxx', ph_address:'House, street, area…', ph_city:'e.g. Dera Ismail Khan', ph_notes:'Any special instructions…',
   adm_courier:'Courier', adm_tracking:'Tracking No', adm_tracking_ph:'e.g. CN-1234-5678',
   ord_repeat:'Repeat customer', ord_orders:'orders', cust_history:'Customer Order History',
+  wa_ask:'Ask on WhatsApp', bill:'Bill / Invoice', wa_bill:'Send bill on WhatsApp',
 },
 ur: {
   nav_home:'ہوم', nav_shop:'دکان', nav_track:'آرڈر ٹریک کریں', nav_cart:'ٹوکری',
@@ -65,6 +66,7 @@ ur: {
   ph_name:'مثلاً احمد رضا', ph_phone:'03xxxxxxxxx', ph_address:'مکان، گلی، علاقہ…', ph_city:'مثلاً ڈیرہ اسماعیل خان', ph_notes:'کوئی خاص ہدایت…',
   adm_courier:'کورئیر', adm_tracking:'ٹریکنگ نمبر', adm_tracking_ph:'مثلاً CN-1234-5678',
   ord_repeat:'پرانا کسٹمر', ord_orders:'آرڈر', cust_history:'کسٹمر کے آرڈرز',
+  wa_ask:'واٹس ایپ پر پوچھیں', bill:'بل / انوائس', wa_bill:'واٹس ایپ پر بل بھیجیں',
 }};
 let LANG = localStorage.getItem('fakhta_lang') || 'en';
 const T = k => (I18N[LANG] && I18N[LANG][k] !== undefined) ? I18N[LANG][k] : I18N.en[k];
@@ -84,6 +86,58 @@ function copyTrack(btn) {
 }
 
 let CATS = [], PRODS = [];
+let STORE = { whatsapp: '', phone: '', name: 'Fakhta' };
+async function loadStore() {
+  try { Object.assign(STORE, await api('/api/store-info')); } catch (e) { /* offline */ }
+  const el = document.getElementById('storeWa');
+  if (el) { el.style.display = STORE.whatsapp ? '' : 'none'; if (STORE.phone) el.querySelector('span').textContent = STORE.phone; }
+}
+// WhatsApp click-to-chat link (no API — opens chat with prefilled text)
+function waLink(text) {
+  if (!STORE.whatsapp) return null;
+  return 'https://wa.me/' + STORE.whatsapp + '?text=' + encodeURIComponent(text);
+}
+function waAsk(p) {
+  const l = waLink(`Assalam-o-Alaikum! Mujhe "${pname(p)}" (${fmt(p.price)}) ke baare me maloomat chahiye.`);
+  if (l) window.open(l, '_blank'); else toast('WhatsApp number set nahi hai');
+}
+// printable invoice HTML for an order (customer + admin)
+function invoiceHTML(o) {
+  const rows = (o.items || []).map(i =>
+    `<tr><td>${esc(LANG === 'ur' && i.name_ur ? i.name_ur : i.name_en)}</td><td>${i.qty}</td><td>${fmt(i.price)}</td><td>${fmt(i.price * i.qty)}</td></tr>`).join('');
+  return `<!DOCTYPE html><html><head><meta charset="utf-8"><title>Invoice ${esc(o.order_no)}</title><style>
+    body{font-family:Arial,sans-serif;max-width:640px;margin:20px auto;padding:0 16px;color:#111}
+    .ih{display:flex;justify-content:space-between;align-items:center;border-bottom:3px solid #b8860b;padding-bottom:10px}
+    .ih h1{color:#0a1f44;margin:0}.ih .fb{color:#b8860b;font-weight:bold}
+    table{width:100%;border-collapse:collapse;margin:14px 0}th,td{border:1px solid #ccc;padding:8px;text-align:left}th{background:#0a1f44;color:#fff}
+    .tot{text-align:right;font-size:1.2rem;font-weight:bold}.meta{color:#444;font-size:.9rem}
+    @media print{.noprint{display:none}}</style></head><body>
+    <div class="ih"><div><h1>FAKHTA</h1><div class="fb">فاختہ • Khubsurti, ab aap ke ghar tak</div></div>
+    <div class="meta">Invoice: <b>${esc(o.order_no)}</b><br>Date: ${esc((o.created_at || '').slice(0, 10))}</div></div>
+    <p class="meta"><b>Customer:</b> ${esc(o.customer_name)}<br><b>Phone:</b> <bdi dir="ltr">${esc(o.phone)}</bdi><br>
+    <b>Address:</b> ${esc(o.address)}, ${esc(o.city)}<br><b>Payment:</b> Cash on Delivery</p>
+    <table><tr><th>Item</th><th>Qty</th><th>Price</th><th>Total</th></tr>${rows}</table>
+    <p class="tot">Total: ${fmt(o.subtotal)}</p>
+    ${STORE.phone ? `<p class="meta">Contact: <bdi dir="ltr">${esc(STORE.phone)}</bdi>${STORE.whatsapp ? ` • WhatsApp: <bdi dir="ltr">+${esc(STORE.whatsapp)}</bdi>` : ''}</p>` : ''}
+    <p class="meta">Shukriya! Fakhta jald call karke confirm karega.</p>
+    <p class="noprint"><button onclick="window.print()" style="padding:10px 24px;font-size:1rem">🖨 Print / Save PDF</button></p>
+    </body></html>`;
+}
+function printInvoice(o) {
+  const w = window.open('', '_blank');
+  if (!w) return toast('Popup blocked');
+  w.document.write(invoiceHTML(o)); w.document.close();
+}
+// bill text for WhatsApp sharing
+function billText(o) {
+  const lines = (o.items || []).map(i => `• ${(LANG === 'ur' && i.name_ur ? i.name_ur : i.name_en)} × ${i.qty} = ${fmt(i.price * i.qty)}`);
+  return `🧾 *FAKHTA Invoice*\nInvoice: ${o.order_no}\nDate: ${(o.created_at || '').slice(0, 10)}\n${lines.join('\n')}\n*Total: ${fmt(o.subtotal)}* (COD)\nShukriya!`;
+}
+function waBill(o) {
+  const ph = String(o.phone || '').replace(/[^\d]/g, '');
+  const l = 'https://wa.me/92' + ph.slice(-10) + '?text=' + encodeURIComponent(billText(o));
+  window.open(l, '_blank');
+}
 async function api(path, opts) {
   const r = await fetch(path, Object.assign({ headers: { 'Content-Type': 'application/json' } }, opts || {}));
   const j = await r.json().catch(() => ({}));
@@ -156,9 +210,7 @@ async function renderHome() {
   const cats = CATS, feat = PRODS.filter(p => p.featured);
   view.innerHTML = `
   <section class="hero hero-video">
-    <video class="hero-bg" autoplay muted loop playsinline preload="metadata" poster="hero-dove-poster.jpg">
-      <source src="hero-dove.mp4" type="video/mp4">
-    </video>
+    <img class="hero-bg" src="hero-royal.jpg" alt="Fakhta">
     <div class="hero-overlay"></div>
     <div class="hero-content">
       <h1>${esc(T('slogan'))}</h1>
@@ -234,6 +286,7 @@ async function renderProduct(id) {
           <button class="btn-gold" onclick="addToCart(${p.id}, +document.getElementById('pdq').textContent)">${esc(T('add_cart'))}</button>
           <button class="btn-ghost" onclick="addToCart(${p.id}, +document.getElementById('pdq').textContent, true);location.hash='#/checkout'">${esc(T('buy_now'))}</button>
         </div>
+        <button class="btn-wa" style="display:${STORE.whatsapp ? '' : 'none'}" onclick='waAsk(PRODS.find(x=>x.id===${p.id}))'>📱 ${esc(T('wa_ask'))}</button>
         <div class="delivery-note">🚚 ${esc(T('delivery_note'))}</div>
         <h3 style="color:var(--gold2);margin-top:18px">${esc(T('desc'))}</h3>
         <p class="desc">${esc(pdesc(p))}</p>
@@ -270,6 +323,7 @@ async function placeOrder() {
   if (!ok) return;
   try {
     const r = await api('/api/orders', { method: 'POST', body: JSON.stringify({ customer_name: name, phone, address, city, notes, items: cart.map(i => ({ id: i.id, qty: i.qty })) }) });
+    window._lastOrder = { order_no: r.order_no, customer_name: name, phone, address, city, subtotal: r.subtotal, created_at: new Date().toISOString(), items: cart.map(i => ({ name_en: i.name_en, name_ur: i.name_ur, price: i.price, qty: i.qty })) };
     cart = []; saveCart(); renderCart();
     location.hash = '#/success?no=' + r.order_no;
   } catch (e) { toast(e.message); }
@@ -279,7 +333,9 @@ function renderSuccess() {
   view.innerHTML = `<div class="success">
     <div class="big">🎉</div><h2>${esc(T('ok_title'))}</h2><p style="color:var(--ink-dim)">${esc(T('ok_msg'))}</p>
     <div class="order-no">${esc(decodeURIComponent(no))}</div><br>
-    <button class="btn-gold" onclick="location.hash='#/'">${esc(T('ok_home'))}</button></div>`;
+    <div style="display:flex;gap:10px;justify-content:center;flex-wrap:wrap">
+      ${window._lastOrder ? `<button class="btn-ghost" onclick="printInvoice(window._lastOrder)">🧾 ${esc(T('bill'))}</button>` : ''}
+      <button class="btn-gold" onclick="location.hash='#/'">${esc(T('ok_home'))}</button></div></div>`;
 }
 function renderTrack() {
   view.innerHTML = `
@@ -299,7 +355,7 @@ async function doTrack() {
     const list = await api('/api/track?phone=' + ph);
     if (!list.length) { out.innerHTML = `<p class="empty">${esc(T('tr_none'))}</p>`; return; }
     const sn = { new: T('st_new'), confirmed: T('st_confirmed'), shipped: T('st_shipped'), delivered: T('st_delivered'), cancelled: T('st_cancelled') };
-    out.innerHTML = list.map(o => `
+    out.innerHTML = list.map((o, ix) => `
       <div class="track-card"><div class="th">
         <b style="color:var(--gold2)">${esc(o.order_no)}</b>
         <span class="status st-${o.status}">${esc(sn[o.status] || o.status)}</span></div>
@@ -311,7 +367,9 @@ async function doTrack() {
           ${o.courier && COURIER_URL[o.courier] ? `<a class="btn-gold btn-sm" target="_blank" rel="noopener" href="${COURIER_URL[o.courier]}">${esc(T('tr_track_btn'))} 🔗</a>` : ''}
         </div>` : ''}
         <div style="margin-top:6px;color:var(--ink-dim);font-size:.85rem">${fmt(o.subtotal)} • ${esc(o.created_at.slice(0, 10))}</div>
+        <div style="margin-top:8px"><button class="btn-ghost btn-sm" onclick='printInvoice(window._track[${ix}])'>🧾 ${esc(T('bill'))}</button></div>
       </div>`).join('');
+    window._track = list;
   } catch (e) { out.innerHTML = `<p class="empty">${esc(e.message)}</p>`; }
 }
 function renderFooterCats() {
@@ -350,6 +408,9 @@ async function renderAdmin(h) {
   if (tab === 'orders') return adminOrders();
   if (tab === 'products') return adminProducts();
   if (tab === 'categories') return adminCategories();
+  if (tab === 'manual') return adminManual();
+  if (tab === 'reports') return adminReports();
+  if (tab === 'settings') return adminSettings();
   if (tab === 'password') return adminPassword();
   return adminDash();
 }
@@ -359,7 +420,7 @@ function adminShell(active, body) {
       <div><button class="btn-ghost" onclick="location.hash='#/'">🏠 Store</button>
       <button class="btn-danger" onclick="adminLogout()">Logout</button></div></div>
     <div class="tabs">
-      ${[['dash', '📊 Dashboard'], ['orders', '📦 Orders'], ['products', '🍽️ Products'], ['categories', '🗂️ Categories'], ['password', '🔑 Password']]
+      ${[['dash', '📊 Dashboard'], ['orders', '📦 Orders'], ['manual', '📝 New Order'], ['products', '🍽️ Products'], ['categories', '🗂️ Categories'], ['reports', '📊 Reports'], ['settings', '⚙️ Settings'], ['password', '🔑 Password']]
         .map(t => `<button class="tab ${active === t[0] ? 'active' : ''}" onclick="location.hash='#/admin/${t[0]}'">${t[1]}</button>`).join('')}
     </div>${body}</div>`;
 }
@@ -376,15 +437,19 @@ async function adminLogin() {
 async function adminLogout() { await api('/api/admin/logout', { method: 'POST' }); location.hash = '#/'; }
 async function adminDash() {
   const d = await api('/api/admin/dashboard');
-  adminShell('dash', `<div class="stat-grid">
-    <div class="stat"><b>${d.counts.new}</b><span>🆕 New orders</span></div>
-    <div class="stat"><b>${d.counts.confirmed}</b><span>✅ Confirmed</span></div>
-    <div class="stat"><b>${d.counts.shipped}</b><span>🚚 Shipped</span></div>
-    <div class="stat"><b>${d.counts.delivered}</b><span>📬 Delivered</span></div>
-    <div class="stat"><b>${fmt(d.pending_revenue)}</b><span>⏳ Pending revenue</span></div>
-    <div class="stat"><b>${fmt(d.revenue)}</b><span>💰 Delivered revenue</span></div>
+  adminShell('dash', `<div class="dash-cards">
+    <div class="dcard c1"><b>${d.counts.new}</b><span>🆕 New orders</span></div>
+    <div class="dcard c2"><b>${d.counts.confirmed}</b><span>✅ Confirmed</span></div>
+    <div class="dcard c3"><b>${d.counts.shipped}</b><span>🚚 Shipped</span></div>
+    <div class="dcard c4"><b>${d.counts.delivered}</b><span>📬 Delivered</span></div>
+    <div class="dcard c5"><b>${fmt(d.pending_revenue)}</b><span>⏳ Pending revenue</span></div>
+    <div class="dcard c6"><b>${fmt(d.revenue)}</b><span>💰 Delivered revenue</span></div>
   </div>
-  <button class="btn-gold" onclick="location.hash='#/admin/orders'">View orders →</button>`);
+  <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:6px">
+    <button class="btn-gold" onclick="location.hash='#/admin/orders'">📦 Orders →</button>
+    <button class="btn-ghost" onclick="location.hash='#/admin/manual'">📝 Manual order</button>
+    <button class="btn-ghost" onclick="location.hash='#/admin/reports'">📊 Reports</button>
+  </div>`);
 }
 async function adminOrders(status) {
   const list = await api('/api/admin/orders' + (status ? '?status=' + status : ''));
@@ -393,7 +458,7 @@ async function adminOrders(status) {
       `<button class="chip ${(!status && !s) || status === s ? 'active' : ''}" onclick="adminOrders('${s}')">${s || 'All'}</button>`).join('')}</div>
     <div style="overflow-x:auto"><table class="tbl"><tr><th>Order</th><th>Customer</th><th>Phone</th><th>Total</th><th>Status</th><th>Date</th></tr>
     ${list.map(o => `<tr style="cursor:pointer" onclick="adminOrderDetail(${o.id})">
-      <td><b style="color:var(--gold2)">${esc(o.order_no)}</b>${o.courier ? `<br><small style="color:var(--ink-dim)">🚚 ${esc(o.courier)}</small>` : ''}</td>
+      <td><b style="color:var(--gold2)">${esc(o.order_no)}</b>${o.source && o.source !== 'online' ? `<span class="src-badge">${o.source === 'manual' ? '📝' : '📱'} ${esc(o.source)}</span>` : ''}${o.courier ? `<br><small style="color:var(--ink-dim)">🚚 ${esc(o.courier)}</small>` : ''}</td>
       <td>${esc(o.customer_name)}${o.cust_count > 1 ? `<br><span class="repeat-badge" title="${esc(T('ord_repeat'))}">🔁 ${o.cust_count} ${esc(T('ord_orders'))}</span>` : ''}</td>
       <td dir="ltr"><a class="link-gold" onclick="event.stopPropagation();custHistory('${esc(o.phone)}')">${esc(o.phone)}</a></td><td>${fmt(o.subtotal)}</td>
       <td><span class="status st-${o.status}">${o.status}</span></td><td>${esc(o.created_at.slice(0, 16).replace('T', ' '))}</td></tr>`).join('') || '<tr><td colspan=6 class="empty">No orders</td></tr>'}
@@ -420,6 +485,7 @@ async function custHistory(phone) {
 }
 async function adminOrderDetail(id) {
   const o = await api('/api/admin/orders/' + id);
+  window._curOrder = o;
   const box = document.createElement('div');
   box.className = 'modal show'; box.id = 'mDetail';
   box.innerHTML = `<div class="modal-box">
@@ -432,7 +498,9 @@ async function adminOrderDetail(id) {
       <div class="field"><label>🚚 ${esc(T('adm_courier'))}</label><select id="mCourier"><option value="">—</option>${COURIERS.map(c => `<option value="${c}" ${o.courier === c ? 'selected' : ''}>${c}</option>`).join('')}</select></div>
       <div class="field"><label>🔢 ${esc(T('adm_tracking'))}</label><input id="mTracking" dir="ltr" placeholder="${esc(T('adm_tracking_ph'))}" value="${esc(o.tracking_no || '')}"></div>
     </div>
-    <div style="display:flex;gap:10px"><button class="btn-gold" onclick="saveOrderDetail(${o.id})">Save</button>
+    <div style="display:flex;gap:10px;flex-wrap:wrap"><button class="btn-gold" onclick="saveOrderDetail(${o.id})">Save</button>
+    <button class="btn-ghost" onclick="printInvoice(window._curOrder)">🧾 ${esc(T('bill'))}</button>
+    <button class="btn-wa" onclick="waBill(window._curOrder)">📱 ${esc(T('wa_bill'))}</button>
     <button class="btn-ghost" onclick="document.getElementById('mDetail').remove()">Close</button></div></div>`;
   box.onclick = e => { if (e.target === box) box.remove(); };
   document.body.appendChild(box);
@@ -549,12 +617,92 @@ async function savePw() {
     toast('Password changed ✓');
   } catch (e) { toast(e.message === 'wrong_current' ? 'Wrong current password' : 'Min 6 characters'); }
 }
+// ---------- manual order entry (WhatsApp / phone orders) ----------
+let MROWS = [{ id: '', qty: 1 }];
+async function adminManual() {
+  const prods = await api('/api/products');
+  const opts = sel => prods.map(p => `<option value="${p.id}" ${String(p.id) === String(sel) ? 'selected' : ''}>${esc(p.name_en)} — ${fmt(p.price)}</option>`).join('');
+  adminShell('manual', `<div class="form-card"><h2>📝 Manual Order (WhatsApp / Phone)</h2>
+    <div class="field"><label>Customer name</label><input id="mo_name" placeholder="e.g. Ahmed Raza"></div>
+    <div class="field"><label>Phone</label><input id="mo_phone" inputmode="numeric" placeholder="03xxxxxxxxx"></div>
+    <div class="field"><label>Address</label><textarea id="mo_addr" rows="2"></textarea></div>
+    <div class="field"><label>City</label><input id="mo_city" placeholder="e.g. Dera Ismail Khan"></div>
+    <div class="field"><label>Source</label><select id="mo_src"><option value="manual">Manual</option><option value="whatsapp">WhatsApp</option></select></div>
+    <h3>Items</h3><div id="moRows">${MROWS.map((r, i) => `
+      <div class="mprod-row"><select id="mo_p${i}"><option value="">— select —</option>${opts(r.id)}</select>
+      <input id="mo_q${i}" type="number" min="1" max="99" value="${r.qty}">
+      ${MROWS.length > 1 ? `<button class="btn-danger btn-sm" onclick="MROWS.splice(${i},1);adminManual()">✕</button>` : ''}</div>`).join('')}</div>
+    <button class="btn-ghost btn-sm" onclick="MROWS.push({id:'',qty:1});adminManual()">+ Add item</button>
+    <div style="margin-top:12px"><button class="btn-gold btn-block" onclick="placeManual()">Create Order</button></div>
+  </div>`);
+}
+async function placeManual() {
+  const items = MROWS.map((_, i) => ({ id: +document.getElementById('mo_p' + i).value, qty: +document.getElementById('mo_q' + i).value || 1 }))
+    .filter(x => x.id);
+  if (!items.length) return toast('Add at least one item');
+  try {
+    const r = await api('/api/orders', { method: 'POST', body: JSON.stringify({
+      customer_name: document.getElementById('mo_name').value, phone: document.getElementById('mo_phone').value,
+      address: document.getElementById('mo_addr').value, city: document.getElementById('mo_city').value,
+      source: document.getElementById('mo_src').value, items }) });
+    MROWS = [{ id: '', qty: 1 }];
+    toast('Order ' + r.order_no + ' created ✓');
+    location.hash = '#/admin/orders';
+  } catch (e) { toast(e.message); }
+}
+// ---------- date-wise reports / ledger ----------
+async function adminReports() {
+  const today = new Date().toISOString().slice(0, 10);
+  const week = new Date(Date.now() - 6 * 864e5).toISOString().slice(0, 10);
+  adminShell('reports', `<div class="form-card"><h2>📊 Sales Report</h2>
+    <div class="datebar">
+      <div class="field"><label>From</label><input type="date" id="rp_from" value="${week}"></div>
+      <div class="field"><label>To</label><input type="date" id="rp_to" value="${today}"></div>
+      <button class="btn-gold" onclick="loadReport()">Show</button>
+      <button class="btn-ghost" onclick="window.print()">🖨 Print</button>
+    </div><div id="rpOut"></div></div>`);
+  loadReport();
+}
+async function loadReport() {
+  const out = document.getElementById('rpOut');
+  const from = document.getElementById('rp_from').value, to = document.getElementById('rp_to').value;
+  out.innerHTML = '<p class="empty">…</p>';
+  try {
+    const r = await api(`/api/admin/reports?from=${from}&to=${to}`);
+    out.innerHTML = `<div class="dash-cards">
+        <div class="dcard c2"><b>${r.total_orders}</b><span>Orders</span></div>
+        <div class="dcard c6"><b>${fmt(r.total_revenue)}</b><span>Revenue</span></div></div>
+      <h3>Day-wise</h3>
+      <table class="rep-table"><tr><th>Date</th><th>Orders</th><th>Revenue</th></tr>
+      ${r.days.map(d => `<tr><td>${esc(d.d)}</td><td>${d.orders}</td><td>${fmt(d.revenue)}</td></tr>`).join('') || '<tr><td colspan=3 class="empty">No data</td></tr>'}</table>
+      <h3>Orders</h3>
+      <table class="rep-table"><tr><th>Invoice</th><th>Customer</th><th>Total</th><th>Status</th><th>Date</th></tr>
+      ${r.orders.map(o => `<tr><td><b>${esc(o.order_no)}</b></td><td>${esc(o.customer_name)}</td><td>${fmt(o.subtotal)}</td><td>${o.status}</td><td>${esc(o.d)}</td></tr>`).join('')}</table>`;
+  } catch (e) { out.innerHTML = `<p class="empty">${esc(e.message)}</p>`; }
+}
+// ---------- store settings (WhatsApp / phone) ----------
+async function adminSettings() {
+  const s = await api('/api/admin/settings');
+  adminShell('settings', `<div class="form-card"><h2>⚙️ Store Settings</h2>
+    <p style="color:var(--ink-dim)">Ye number site par (footer + WhatsApp buttons) show hoga.</p>
+    <div class="field"><label>WhatsApp number (e.g. 923001234567)</label><input id="st_wa" dir="ltr" value="${esc(s.store_whatsapp)}" placeholder="923001234567"></div>
+    <div class="field"><label>Phone display (e.g. 0300-1234567)</label><input id="st_ph" dir="ltr" value="${esc(s.store_phone)}"></div>
+    <button class="btn-gold btn-block" onclick="saveSettings()">Save</button></div>`);
+}
+async function saveSettings() {
+  try {
+    await api('/api/admin/settings', { method: 'PUT', body: JSON.stringify({
+      store_whatsapp: document.getElementById('st_wa').value, store_phone: document.getElementById('st_ph').value }) });
+    toast('Saved ✓'); loadStore();
+  } catch (e) { toast(e.message); }
+}
 // ---------- boot ----------
 (async function init() {
   applyLang();
   try {
     CATS = await api('/api/categories');
     PRODS = await api('/api/products');
+    await loadStore();
   } catch (e) { console.error('API error', e); }
   updateCartBadge(); renderCart(); applyLang();
   const h = location.hash || '#/';
