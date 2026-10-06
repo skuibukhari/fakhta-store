@@ -24,7 +24,7 @@ en: {
   co_title:'Checkout', co_name:'Full Name', co_phone:'Mobile Number', co_address:'Complete Address',
   co_city:'City', co_notes:'Notes (optional)', co_place:'Place Order', co_pay:'Payment: Cash on Delivery',
   err_name:'Please enter your name', err_phone:'Enter a valid 11-digit mobile number (03xx-xxxxxxx)',
-  err_address:'Please enter your complete address', err_city:'Please enter your city',
+  err_address:'Please enter your complete address', err_city:'Please select your city',
   ok_title:'Order Placed! 🎉', ok_msg:'Thank you! We will call you soon to confirm your order.',
   ok_no:'Your order number', ok_home:'Back to Home',
   tr_title:'Track Your Order', tr_ph:'Enter your mobile number (03xx-xxxxxxx)', tr_btn:'Track Orders',
@@ -54,7 +54,7 @@ ur: {
   co_title:'آرڈر مکمل کریں', co_name:'پورا نام', co_phone:'موبائل نمبر', co_address:'مکمل پتہ',
   co_city:'شہر', co_notes:'نوٹ (اختیاری)', co_place:'آرڈر کریں', co_pay:'ادائیگی: کیش آن ڈیلیوری',
   err_name:'براہ کرم اپنا نام لکھیں', err_phone:'درست 11 ہندسوں کا موبائل نمبر لکھیں (03xx-xxxxxxx)',
-  err_address:'براہ کرم مکمل پتہ لکھیں', err_city:'براہ کرم شہر لکھیں',
+  err_address:'براہ کرم مکمل پتہ لکھیں', err_city:'براہ کرم اپنا شہر منتخب کریں',
   ok_title:'آرڈر ہو گیا! 🎉', ok_msg:'شکریہ! تصدیق کے لیے ہم جلد آپ کو کال کریں گے۔',
   ok_no:'آپ کا آرڈر نمبر', ok_home:'ہوم پر واپس جائیں',
   tr_title:'اپنا آرڈر ٹریک کریں', tr_ph:'اپنا موبائل نمبر لکھیں (03xx-xxxxxxx)', tr_btn:'آرڈر دیکھیں',
@@ -70,6 +70,18 @@ ur: {
 }};
 let LANG = localStorage.getItem('fakhta_lang') || 'en';
 const T = k => (I18N[LANG] && I18N[LANG][k] !== undefined) ? I18N[LANG][k] : I18N.en[k];
+// Pakistan cities grouped by province/region for the city dropdown
+const PK_CITIES = [
+  ['Punjab', ['Lahore','Faisalabad','Rawalpindi','Multan','Gujranwala','Sialkot','Sargodha','Bahawalpur','Gujrat','Jhang','Sheikhupura','Kasur','Okara','Sahiwal','Dera Ghazi Khan','Rahim Yar Khan','Jhelum','Attock','Chakwal','Mianwali','Bhakkar','Khushab','Toba Tek Singh','Vehari','Khanewal','Lodhran','Pakpattan','Bahawalnagar','Mandi Bahauddin','Narowal','Hafizabad','Nankana Sahib','Chiniot','Layyah','Muzaffargarh','Rajanpur','Kot Addu']],
+  ['Sindh', ['Karachi','Hyderabad','Sukkur','Larkana','Mirpur Khas','Nawabshah (Shaheed Benazirabad)','Jacobabad','Shikarpur','Khairpur','Dadu','Thatta','Badin','Umerkot','Tharparkar (Mithi)','Sanghar','Tando Allahyar','Tando Muhammad Khan','Jamshoro','Matiari','Ghotki','Kashmore','Naushahro Feroze','Qambar Shahdadkot']],
+  ['Khyber Pakhtunkhwa', ['Peshawar','Mardan','Abbottabad','Dera Ismail Khan','Kohat','Bannu','Swat (Mingora)','Nowshera','Charsadda','Swabi','Mansehra','Haripur','Tank','Lakki Marwat','Karak','Hangu','Buner','Lower Dir','Upper Dir','Chitral','Shangla','Battagram','Torghar','Kohistan']],
+  ['Balochistan', ['Quetta','Turbat','Hub','Gwadar','Khuzdar','Sibi','Zhob','Loralai','Nasirabad','Jaffarabad','Chaman','Pishin','Mastung','Kalat','Kharan','Washuk','Panjgur','Kech','Awaran','Lasbela']],
+  ['Azad Jammu & Kashmir', ['Muzaffarabad','Mirpur','Rawalakot','Kotli','Bagh','Bhimber','Hattian','Neelum','Haveli','Sudhnoti']],
+  ['Gilgit-Baltistan', ['Gilgit','Skardu','Hunza','Ghizer','Diamer','Astore','Ghanche','Shigar','Kharmang','Nagar']],
+  ['Islamabad', ['Islamabad']]
+];
+const cityOptions = sel => `<option value="">— ${T('co_city')} —</option>` + PK_CITIES.map(([prov, cities]) =>
+  `<optgroup label="${prov}">` + cities.map(c => `<option value="${c}" ${c === sel ? 'selected' : ''}>${c}</option>`).join('') + `</optgroup>`).join('');
 const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const fmt = n => 'Rs. ' + Number(n || 0).toLocaleString('en-PK');
 const stars = r => '★'.repeat(Math.round(r || 4.5)) + '☆'.repeat(5 - Math.round(r || 4.5));
@@ -309,7 +321,7 @@ function renderCheckout() {
     <div class="field" id="f_name"><label>${esc(T('co_name'))}</label><input id="co_name" placeholder="${esc(T('ph_name'))}"><div class="err">${esc(T('err_name'))}</div></div>
     <div class="field" id="f_phone"><label>${esc(T('co_phone'))}</label><input id="co_phone" inputmode="numeric" placeholder="${esc(T('ph_phone'))}"><div class="err">${esc(T('err_phone'))}</div></div>
     <div class="field" id="f_address"><label>${esc(T('co_address'))}</label><textarea id="co_address" rows="2" placeholder="${esc(T('ph_address'))}"></textarea><div class="err">${esc(T('err_address'))}</div></div>
-    <div class="field" id="f_city"><label>${esc(T('co_city'))}</label><input id="co_city" placeholder="${esc(T('ph_city'))}"><div class="err">${esc(T('err_city'))}</div></div>
+    <div class="field" id="f_city"><label>${esc(T('co_city'))}</label><select id="co_city">${cityOptions('')}</select><div class="err">${esc(T('err_city'))}</div></div>
     <div class="field"><label>${esc(T('co_notes'))}</label><textarea id="co_notes" rows="2" placeholder="${esc(T('ph_notes'))}"></textarea></div>
     <div class="cart-total"><span>${esc(T('cart_total'))}</span><b>${fmt(cartSum())}</b></div>
     <button class="btn-gold btn-block" onclick="placeOrder()">${esc(T('co_place'))} • ${fmt(cartSum())}</button>
@@ -628,7 +640,7 @@ async function adminManual() {
     <div class="field"><label>Customer name</label><input id="mo_name" placeholder="e.g. Ahmed Raza"></div>
     <div class="field"><label>Phone</label><input id="mo_phone" inputmode="numeric" placeholder="03xxxxxxxxx"></div>
     <div class="field"><label>Address</label><textarea id="mo_addr" rows="2"></textarea></div>
-    <div class="field"><label>City</label><input id="mo_city" placeholder="e.g. Dera Ismail Khan"></div>
+    <div class="field"><label>City</label><select id="mo_city">${cityOptions('')}</select></div>
     <div class="field"><label>Source</label><select id="mo_src"><option value="manual">Manual</option><option value="whatsapp">WhatsApp</option></select></div>
     <h3>Items</h3><div id="moRows">${MROWS.map((r, i) => `
       <div class="mprod-row"><select id="mo_p${i}"><option value="">— select —</option>${opts(r.id)}</select>
