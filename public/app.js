@@ -210,8 +210,8 @@ async function renderHome() {
   const cats = CATS, feat = PRODS.filter(p => p.featured);
   view.innerHTML = `
   <section class="hero hero-video">
-    <video class="hero-bg" autoplay muted loop playsinline preload="metadata" poster="hero-dove-poster.jpg">
-      <source src="hero-dove.mp4" type="video/mp4">
+    <video class="hero-bg" autoplay muted loop playsinline preload="metadata" poster="hero-golden-poster.jpg">
+      <source src="hero-golden.mp4" type="video/mp4">
     </video>
     <div class="hero-overlay"></div>
     <div class="hero-content">
