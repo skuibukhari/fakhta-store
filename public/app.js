@@ -401,7 +401,7 @@ function paySectionHTML(pi) {
   const wnum = wraw.length >= 10 ? wraw.slice(0, 4) + ' ' + wraw.slice(4) : wraw;
   const bank = String(pi.bank_account || '').replace(/(\d{4})(?=\d)/g, '$1 ');
   const bankName = pi.bank_name || 'Askari Bank';
-  const wcard = (logo, alt) => `<div class="pay-logo-card"><img src="${esc(rel('pay-logos/' + logo))}" alt="${alt}"><div class="pay-num" dir="ltr">${esc(wnum)}</div><button class="pay-copy" onclick="copyPay('${esc(wraw)}')">${esc(T('pay_copy'))}</button></div>`;
+  const wcard = (logo, alt) => `<div class="pay-logo-card"><img src="${esc(rel('pay-logo/' + logo))}" alt="${alt}"><div class="pay-num" dir="ltr">${esc(wnum)}</div><button class="pay-copy" onclick="copyPay('${esc(wraw)}')">${esc(T('pay_copy'))}</button></div>`;
   const codCard = pi.cod_enabled ? `<div class="pay-card" data-m="cod" onclick="setPayMethod('cod')"><div class="pay-radio"></div><div class="pay-ic">💵</div><div><div class="pay-name">${esc(T('pay_cod'))}</div><div class="pay-sub">${esc(T('pay_cod_sub'))}</div></div></div>` : '';
   return `<div class="pay-wrap">
     <div class="pay-head">${esc(T('pay_title'))}</div><div class="pay-sub2">${esc(T('pay_sub'))}</div>
@@ -410,8 +410,8 @@ function paySectionHTML(pi) {
       <div class="pay-label">📱 ${esc(T('pay_wallets'))} <small>• ${esc(T('pay_same'))}</small></div>
       <div class="pay-logos">${wcard('jazzcash.png', 'JazzCash')}${wcard('easypaisa.png', 'Easypaisa')}${wcard('sadapay.png', 'SadaPay')}${wcard('nayapay.png', 'NayaPay')}</div>
       <div class="pay-label">🏦 ${esc(T('pay_bank_t'))}</div>
-      <div class="pay-bank"><img src="${esc(rel('pay-logos/askari.png'))}" alt="Askari"><div style="flex:1"><div class="pay-num" dir="ltr">${esc(bank)}</div><div class="pay-bankname">${esc(bankName)}</div></div><button class="pay-copy" onclick="copyPay('${esc(String(pi.bank_account || '').replace(/\D/g, ''))}')">${esc(T('pay_copy'))}</button></div>
-      <div class="pay-qr"><img src="${esc(rel('askari-qr.png'))}"><div>${esc(T('pay_qr'))}</div></div>
+      <div class="pay-bank"><img src="${esc(rel('pay-logo/askari.png'))}" alt="Askari"><div style="flex:1"><div class="pay-num" dir="ltr">${esc(bank)}</div><div class="pay-bankname">${esc(bankName)}</div></div><button class="pay-copy" onclick="copyPay('${esc(String(pi.bank_account || '').replace(/\D/g, ''))}')">${esc(T('pay_copy'))}</button></div>
+      <div class="pay-qr"><img src="${esc(rel('pay-logo/askari-qr.png'))}"><div>${esc(T('pay_qr'))}</div></div>
       <div class="pay-label">🧾 ${esc(T('pay_receipt'))}</div>
       <div class="pay-upload" onclick="document.getElementById('co_receipt').click()">
         <input type="file" id="co_receipt" accept="image/*" hidden onchange="previewReceipt(this)">
