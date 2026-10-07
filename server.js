@@ -68,6 +68,11 @@ for (const col of ['courier', 'tracking_no']) {
 // v1.3 migration: order source (online/manual/whatsapp)
 try { db.exec(`ALTER TABLE orders ADD COLUMN source TEXT NOT NULL DEFAULT 'online'`); }
 catch (e) { /* column already exists */ }
+// v1.4 migration: customer email + whatsapp for order updates
+try { db.exec(`ALTER TABLE orders ADD COLUMN email TEXT NOT NULL DEFAULT ''`); }
+catch (e) { /* column already exists */ }
+try { db.exec(`ALTER TABLE orders ADD COLUMN whatsapp TEXT NOT NULL DEFAULT ''`); }
+catch (e) { /* column already exists */ }
 
 // ---------- seed data ----------
 function seed() {
@@ -192,11 +197,15 @@ app.get('/api/products/:id', (req, res) => {
   res.json(p);
 });
 app.post('/api/orders', (req, res) => {
-  const { customer_name, phone, address, city, notes, items, source } = req.body || {};
+  const { customer_name, phone, address, city, notes, items, source, email, whatsapp } = req.body || {};
   const src = ['online', 'manual', 'whatsapp'].includes(source) ? source : 'online';
   if (!customer_name || !String(customer_name).trim()) return res.status(400).json({ error: 'name_required' });
   const ph = String(phone || '').replace(/[\s-]/g, '');
   if (!/^03\d{9}$/.test(ph)) return res.status(400).json({ error: 'phone_invalid' });
+  let wa = String(whatsapp || '').replace(/[\s-]/g, '');
+  if (!wa) wa = ph; else if (!/^03\d{9}$/.test(wa)) return res.status(400).json({ error: 'whatsapp_invalid' });
+  const em = String(email || '').trim();
+  if (em && !/.+@.+\..+/.test(em)) return res.status(400).json({ error: 'email_invalid' });
   if (!address || !String(address).trim()) return res.status(400).json({ error: 'address_required' });
   if (!city || !String(city).trim()) return res.status(400).json({ error: 'city_required' });
   if (!Array.isArray(items) || items.length === 0) return res.status(400).json({ error: 'empty_cart' });
@@ -211,8 +220,8 @@ app.post('/api/orders', (req, res) => {
     subtotal += p.price * qty;
   }
   const no = orderNo();
-  const info = db.prepare(`INSERT INTO orders (order_no, customer_name, phone, address, city, notes, subtotal, source)
-    VALUES (?,?,?,?,?,?,?,?)`).run(no, String(customer_name).trim(), ph, String(address).trim(), String(city).trim(), String(notes || '').trim(), subtotal, src);
+  const info = db.prepare(`INSERT INTO orders (order_no, customer_name, phone, address, city, notes, subtotal, source, email, whatsapp)
+    VALUES (?,?,?,?,?,?,?,?,?,?)`).run(no, String(customer_name).trim(), ph, String(address).trim(), String(city).trim(), String(notes || '').trim(), subtotal, src, em, wa);
   const iins = db.prepare('INSERT INTO order_items (order_id, product_id, name_en, name_ur, price, qty) VALUES (?,?,?,?,?,?)');
   for (const l of lines) iins.run(info.lastInsertRowid, l.product_id, l.name_en, l.name_ur, l.price, l.qty);
   res.json({ ok: true, order_no: no, subtotal });

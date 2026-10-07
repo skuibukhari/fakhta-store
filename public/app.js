@@ -23,6 +23,7 @@ en: {
   delivery_note:'Free delivery across Pakistan • Cash on Delivery',
   co_title:'Checkout', co_name:'Full Name', co_phone:'Mobile Number', co_address:'Complete Address',
   co_city:'City', co_notes:'Notes (optional)', co_place:'Place Order', co_pay:'Payment: Cash on Delivery',
+  co_whatsapp:'WhatsApp Number', co_email:'Email', wa_hint:'Leave empty — your mobile number will be used for WhatsApp updates',
   err_name:'Please enter your name', err_phone:'Enter a valid 11-digit mobile number (03xx-xxxxxxx)',
   err_address:'Please enter your complete address', err_city:'Please select your city',
   ok_title:'Order Placed! 🎉', ok_msg:'Thank you! We will call you soon to confirm your order.',
@@ -34,6 +35,7 @@ en: {
   ft_shop:'Shop', ft_support:'Support', ft_cod:'Cash on Delivery', ft_returns:'7-Day Easy Returns', ft_rights:'All Rights Reserved',
   added:'Added to cart ✓', removed:'Removed', order_placed:'Order placed!',
   ph_name:'e.g. Ahmed Raza', ph_phone:'03xxxxxxxxx', ph_address:'House, street, area…', ph_city:'e.g. Dera Ismail Khan', ph_notes:'Any special instructions…',
+  ph_wa:'03xxxxxxxxx', ph_email:'example@mail.com', ph_digits:'XXXXXXX',
   adm_courier:'Courier', adm_tracking:'Tracking No', adm_tracking_ph:'e.g. CN-1234-5678',
   ord_repeat:'Repeat customer', ord_orders:'orders', cust_history:'Customer Order History',
   wa_ask:'Ask on WhatsApp', bill:'Bill / Invoice', wa_bill:'Send bill on WhatsApp',
@@ -53,6 +55,7 @@ ur: {
   delivery_note:'پاکستان بھر میں مفت ڈیلیوری • کیش آن ڈیلیوری',
   co_title:'آرڈر مکمل کریں', co_name:'پورا نام', co_phone:'موبائل نمبر', co_address:'مکمل پتہ',
   co_city:'شہر', co_notes:'نوٹ (اختیاری)', co_place:'آرڈر کریں', co_pay:'ادائیگی: کیش آن ڈیلیوری',
+  co_whatsapp:'واٹس ایپ نمبر', co_email:'ای میل', wa_hint:'خالی چھوڑیں — واٹس ایپ اپڈیٹس کے لیے موبائل نمبر استعمال ہوگا',
   err_name:'براہ کرم اپنا نام لکھیں', err_phone:'درست 11 ہندسوں کا موبائل نمبر لکھیں (03xx-xxxxxxx)',
   err_address:'براہ کرم مکمل پتہ لکھیں', err_city:'براہ کرم اپنا شہر منتخب کریں',
   ok_title:'آرڈر ہو گیا! 🎉', ok_msg:'شکریہ! تصدیق کے لیے ہم جلد آپ کو کال کریں گے۔',
@@ -64,6 +67,7 @@ ur: {
   ft_shop:'دکان', ft_support:'مدد', ft_cod:'کیش آن ڈیلیوری', ft_returns:'7 دن میں آسان واپسی', ft_rights:'جملہ حقوق محفوظ ہیں',
   added:'ٹوکری میں شامل ہو گیا ✓', removed:'حذف کر دیا گیا', order_placed:'آرڈر ہو گیا!',
   ph_name:'مثلاً احمد رضا', ph_phone:'03xxxxxxxxx', ph_address:'مکان، گلی، علاقہ…', ph_city:'مثلاً ڈیرہ اسماعیل خان', ph_notes:'کوئی خاص ہدایت…',
+  ph_wa:'03xxxxxxxxx', ph_email:'example@mail.com', ph_digits:'XXXXXXX',
   adm_courier:'کورئیر', adm_tracking:'ٹریکنگ نمبر', adm_tracking_ph:'مثلاً CN-1234-5678',
   ord_repeat:'پرانا کسٹمر', ord_orders:'آرڈر', cust_history:'کسٹمر کے آرڈرز',
   wa_ask:'واٹس ایپ پر پوچھیں', bill:'بل / انوائس', wa_bill:'واٹس ایپ پر بل بھیجیں',
@@ -82,6 +86,8 @@ const PK_CITIES = [
 ];
 const cityOptions = sel => `<option value="">— ${T('co_city')} —</option>` + PK_CITIES.map(([prov, cities]) =>
   `<optgroup label="${prov}">` + cities.map(c => `<option value="${c}" ${c === sel ? 'selected' : ''}>${c}</option>`).join('') + `</optgroup>`).join('');
+// Pakistani mobile prefixes: Jazz 0300-0309, Zong 0310-0319, Ufone 0330-0339, Telenor 0340-0349, SCO 0355
+const prefixOptions = sel => { const a = []; [[300, 309], [310, 319], [330, 339], [340, 349]].forEach(([f, t]) => { for (let i = f; i <= t; i++) a.push('0' + i); }); a.push('0355'); return a.map(p => `<option value="${p}" ${p === sel ? 'selected' : ''}>${p}</option>`).join(''); };
 const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const fmt = n => 'Rs. ' + Number(n || 0).toLocaleString('en-PK');
 const stars = r => '★'.repeat(Math.round(r || 4.5)) + '☆'.repeat(5 - Math.round(r || 4.5));
@@ -319,7 +325,13 @@ function renderCheckout() {
     <h2>${esc(T('co_title'))}</h2>
     <p style="text-align:center;color:var(--gold2);margin-bottom:16px">💵 ${esc(T('co_pay'))}</p>
     <div class="field" id="f_name"><label>${esc(T('co_name'))}</label><input id="co_name" placeholder="${esc(T('ph_name'))}"><div class="err">${esc(T('err_name'))}</div></div>
-    <div class="field" id="f_phone"><label>${esc(T('co_phone'))}</label><input id="co_phone" inputmode="numeric" placeholder="${esc(T('ph_phone'))}"><div class="err">${esc(T('err_phone'))}</div></div>
+    <div class="field" id="f_phone"><label>${esc(T('co_phone'))}</label>
+      <div style="display:flex;gap:8px"><span class="cc-badge">+92</span>
+      <select id="co_prefix" style="flex:0 0 96px">${prefixOptions('0300')}</select>
+      <input id="co_digits" inputmode="numeric" maxlength="7" placeholder="${esc(T('ph_digits'))}" style="flex:1"></div>
+      <div class="err">${esc(T('err_phone'))}</div></div>
+    <div class="field" id="f_wa"><label>${esc(T('co_whatsapp'))} <small style="color:var(--ink-dim)">(optional)</small></label><input id="co_wa" inputmode="numeric" placeholder="${esc(T('ph_wa'))}"><small class="hint">${esc(T('wa_hint'))}</small><div class="err">${esc(T('err_phone'))}</div></div>
+    <div class="field" id="f_email"><label>${esc(T('co_email'))} <small style="color:var(--ink-dim)">(optional)</small></label><input id="co_email" type="email" dir="ltr" placeholder="${esc(T('ph_email'))}"><div class="err">Invalid email</div></div>
     <div class="field" id="f_address"><label>${esc(T('co_address'))}</label><textarea id="co_address" rows="2" placeholder="${esc(T('ph_address'))}"></textarea><div class="err">${esc(T('err_address'))}</div></div>
     <div class="field" id="f_city"><label>${esc(T('co_city'))}</label><select id="co_city">${cityOptions('')}</select><div class="err">${esc(T('err_city'))}</div></div>
     <div class="field"><label>${esc(T('co_notes'))}</label><textarea id="co_notes" rows="2" placeholder="${esc(T('ph_notes'))}"></textarea></div>
@@ -329,14 +341,19 @@ function renderCheckout() {
 }
 async function placeOrder() {
   const g = id => document.getElementById(id).value.trim();
-  const name = g('co_name'), phone = g('co_phone').replace(/[\s-]/g, ''), address = g('co_address'), city = g('co_city'), notes = g('co_notes');
+  const name = g('co_name'), prefix = g('co_prefix'), digits = g('co_digits').replace(/\D/g, ''),
+    phone = prefix + digits, address = g('co_address'), city = g('co_city'), notes = g('co_notes'),
+    waRaw = g('co_wa').replace(/[\s-]/g, ''), email = g('co_email');
+  const whatsapp = waRaw || phone;
   let ok = true;
   const mark = (fid, bad) => { document.getElementById(fid).classList.toggle('invalid', bad); if (bad) ok = false; };
   mark('f_name', !name); mark('f_phone', !/^03\d{9}$/.test(phone));
+  mark('f_wa', !!(waRaw && !/^03\d{9}$/.test(waRaw)));
+  mark('f_email', !!(email && !/.+@.+\..+/.test(email)));
   mark('f_address', !address); mark('f_city', !city);
   if (!ok) return;
   try {
-    const r = await api('/api/orders', { method: 'POST', body: JSON.stringify({ customer_name: name, phone, address, city, notes, items: cart.map(i => ({ id: i.id, qty: i.qty })) }) });
+    const r = await api('/api/orders', { method: 'POST', body: JSON.stringify({ customer_name: name, phone, whatsapp, email, address, city, notes, items: cart.map(i => ({ id: i.id, qty: i.qty })) }) });
     window._lastOrder = { order_no: r.order_no, customer_name: name, phone, address, city, subtotal: r.subtotal, created_at: new Date().toISOString(), items: cart.map(i => ({ name_en: i.name_en, name_ur: i.name_ur, price: i.price, qty: i.qty })) };
     cart = []; saveCart(); renderCart();
     location.hash = '#/success?no=' + r.order_no;
