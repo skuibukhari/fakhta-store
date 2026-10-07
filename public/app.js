@@ -24,6 +24,16 @@ en: {
   co_title:'Checkout', co_name:'Full Name', co_phone:'Mobile Number', co_address:'Complete Address',
   co_city:'City', co_notes:'Notes (optional)', co_place:'Place Order', co_pay:'Payment: Cash on Delivery',
   co_whatsapp:'WhatsApp Number', co_email:'Email', wa_hint:'Leave empty — your mobile number will be used for WhatsApp updates',
+  pay_title:'Payment Method', pay_sub:'Choose how you would like to pay',
+  pay_cod:'Cash on Delivery', pay_cod_sub:'Pay in cash when your order arrives',
+  pay_adv:'Advance Payment', pay_adv_sub:'Pay now via mobile / bank transfer',
+  pay_wallets:'Mobile Wallets', pay_same:'Same number for all', pay_copy:'COPY',
+  pay_bank_t:'Bank Transfer', pay_qr:'Scan QR with any banking app',
+  pay_txn:'Transaction ID', pay_txn_ph:'Enter reference number…',
+  pay_receipt:'Payment Receipt', pay_upload:'Upload Receipt Screenshot', pay_upload_sub:'Tap to choose from gallery or camera',
+  pay_choose:'CHOOSE FILE', pay_wa:'Send Receipt on WhatsApp', pay_wa_hint:'Send your receipt — your order will confirm faster!',
+  pay_sent:'Payment sent — order will process after verification',
+  pay_total:'Total payable', err_cod:'Cash on Delivery is currently unavailable — please pay in advance',
   err_name:'Please enter your name', err_phone:'Enter a valid 11-digit mobile number (03xx-xxxxxxx)',
   err_address:'Please enter your complete address', err_city:'Please select your city',
   ok_title:'Order Placed! 🎉', ok_msg:'Thank you! We will call you soon to confirm your order.',
@@ -56,6 +66,16 @@ ur: {
   co_title:'آرڈر مکمل کریں', co_name:'پورا نام', co_phone:'موبائل نمبر', co_address:'مکمل پتہ',
   co_city:'شہر', co_notes:'نوٹ (اختیاری)', co_place:'آرڈر کریں', co_pay:'ادائیگی: کیش آن ڈیلیوری',
   co_whatsapp:'واٹس ایپ نمبر', co_email:'ای میل', wa_hint:'خالی چھوڑیں — واٹس ایپ اپڈیٹس کے لیے موبائل نمبر استعمال ہوگا',
+  pay_title:'ادائیگی کا طریقہ', pay_sub:'منتخب کریں کہ کیسے ادائیگی کریں گے',
+  pay_cod:'کیش آن ڈیلیوری', pay_cod_sub:'آرڈر ملنے پر نقد ادائیگی کریں',
+  pay_adv:'ایڈوانس ادائیگی', pay_adv_sub:'موبائل / بینک ٹرانسفر سے ابھی ادائیگی کریں',
+  pay_wallets:'موبائل والیٹس', pay_same:'سب کے لیے ایک ہی نمبر', pay_copy:'کاپی',
+  pay_bank_t:'بینک ٹرانسفر', pay_qr:'کسی بھی بینکنگ ایپ سے QR اسکین کریں',
+  pay_txn:'ٹرانزیکشن آئی ڈی', pay_txn_ph:'ریفرنس نمبر لکھیں…',
+  pay_receipt:'ادائیگی کی رسید', pay_upload:'رسید کا اسکرین شاٹ اپلوڈ کریں', pay_upload_sub:'گیلری یا کیمرے سے منتخب کریں',
+  pay_choose:'فائل منتخب کریں', pay_wa:'واٹس ایپ پر رسید بھیجیں', pay_wa_hint:'رسید بھیج دیں — آپ کا آرڈر جلدی کنفرم ہوگا!',
+  pay_sent:'ادائیگی بھیج دی — تصدیق کے بعد آرڈر پراسیس ہوگا',
+  pay_total:'کل قابل ادائیگی', err_cod:'کیش آن ڈیلیوری فی الحال بند ہے — براہ کرم ایڈوانس ادائیگی کریں',
   err_name:'براہ کرم اپنا نام لکھیں', err_phone:'درست 11 ہندسوں کا موبائل نمبر لکھیں (03xx-xxxxxxx)',
   err_address:'براہ کرم مکمل پتہ لکھیں', err_city:'براہ کرم اپنا شہر منتخب کریں',
   ok_title:'آرڈر ہو گیا! 🎉', ok_msg:'شکریہ! تصدیق کے لیے ہم جلد آپ کو کال کریں گے۔',
@@ -121,24 +141,47 @@ function waAsk(p) {
 }
 // printable invoice HTML for an order (customer + admin)
 function invoiceHTML(o) {
-  const rows = (o.items || []).map(i =>
-    `<tr><td>${esc(LANG === 'ur' && i.name_ur ? i.name_ur : i.name_en)}</td><td>${i.qty}</td><td>${fmt(i.price)}</td><td>${fmt(i.price * i.qty)}</td></tr>`).join('');
+  const rows = (o.items || []).map((i, ix) =>
+    `<tr><td>${ix + 1}</td><td>${esc(LANG === 'ur' && i.name_ur ? i.name_ur : i.name_en)}</td><td style="text-align:center">${i.qty}</td><td style="text-align:right">${fmt(i.price)}</td><td style="text-align:right">${fmt(i.price * i.qty)}</td></tr>`).join('');
+  const payName = o.payment_method === 'advance' ? 'Advance Payment' : 'Cash on Delivery';
+  const paySub = o.payment_method === 'advance'
+    ? (o.payment_status === 'received' ? 'Payment received ✅' : 'Payment pending ⏳') + (o.txn_id ? `<br>Txn: <bdi dir="ltr">${esc(o.txn_id)}</bdi>` : '')
+    : 'Pay in cash when your<br>order arrives at your door.';
   return `<!DOCTYPE html><html><head><meta charset="utf-8"><title>Invoice ${esc(o.order_no)}</title><style>
-    body{font-family:Arial,sans-serif;max-width:640px;margin:20px auto;padding:0 16px;color:#111}
-    .ih{display:flex;justify-content:space-between;align-items:center;border-bottom:3px solid #b8860b;padding-bottom:10px}
-    .ih h1{color:#0a1f44;margin:0}.ih .fb{color:#b8860b;font-weight:bold}
-    table{width:100%;border-collapse:collapse;margin:14px 0}th,td{border:1px solid #ccc;padding:8px;text-align:left}th{background:#0a1f44;color:#fff}
-    .tot{text-align:right;font-size:1.2rem;font-weight:bold}.meta{color:#444;font-size:.9rem}
-    @media print{.noprint{display:none}}</style></head><body>
-    <div class="ih"><div><h1>FAKHTA</h1><div class="fb">فاختہ • Khubsurti, ab aap ke ghar tak</div></div>
-    <div class="meta">Invoice: <b>${esc(o.order_no)}</b><br>Date: ${esc((o.created_at || '').slice(0, 10))}</div></div>
-    <p class="meta"><b>Customer:</b> ${esc(o.customer_name)}<br><b>Phone:</b> <bdi dir="ltr">${esc(o.phone)}</bdi><br>
-    <b>Address:</b> ${esc(o.address)}, ${esc(o.city)}<br><b>Payment:</b> Cash on Delivery</p>
-    <table><tr><th>Item</th><th>Qty</th><th>Price</th><th>Total</th></tr>${rows}</table>
-    <p class="tot">Total: ${fmt(o.subtotal)}</p>
-    ${STORE.phone ? `<p class="meta">Contact: <bdi dir="ltr">${esc(STORE.phone)}</bdi>${STORE.whatsapp ? ` • WhatsApp: <bdi dir="ltr">+${esc(STORE.whatsapp)}</bdi>` : ''}</p>` : ''}
-    <p class="meta">Shukriya! Fakhta jald call karke confirm karega.</p>
-    <p class="noprint"><button onclick="window.print()" style="padding:10px 24px;font-size:1rem">🖨 Print / Save PDF</button></p>
+    body{font-family:Arial,sans-serif;max-width:680px;margin:20px auto;padding:0 16px;color:#111;background:#fff}
+    .hd{background:#0a1f44;padding:20px 22px;display:flex;justify-content:space-between;align-items:center;border-radius:10px 10px 0 0}
+    .hd .brand{color:#e8c15a;font-size:1.8rem;font-weight:800;letter-spacing:3px}
+    .hd .tag{color:#fff;font-size:.85rem;margin-top:2px}
+    .badge{display:inline-block;background:#e8c15a;color:#0a1f44;font-weight:800;font-size:.8rem;padding:6px 14px;border-radius:20px;letter-spacing:1px}
+    .meta{color:#fff;font-size:.82rem;margin-top:8px;text-align:right}
+    .boxes{display:flex;justify-content:space-between;gap:12px;margin:16px 0;flex-wrap:wrap}
+    .box{flex:1;min-width:200px;border-radius:8px;padding:12px 14px}
+    .box.bill{border:2px solid #0a1f44}
+    .box.pay{background:#fff8e6;border:2px solid #e8c15a}
+    .box .lbl{font-size:.72rem;color:#8a6508;font-weight:800;letter-spacing:2px;margin-bottom:6px}
+    .box .big{font-weight:800;color:#0a1f44;font-size:1.02rem}
+    .box .small{color:#222;font-size:.88rem;margin-top:4px;line-height:1.5}
+    table{width:100%;border-collapse:collapse;margin:8px 0;font-size:.9rem}
+    th{background:#0a1f44;color:#fff;padding:11px 10px;text-align:left}
+    td{padding:11px 10px;border-bottom:1px solid #e8eaf2;color:#111}
+    .totals{text-align:right;margin-top:10px}
+    .totals .grand{font-size:1.25rem;font-weight:800;color:#0a1f44;border-top:2px solid #e8c15a;padding-top:8px;margin-top:8px}
+    .sign{display:flex;justify-content:space-between;margin-top:44px;gap:20px}
+    .sign div{flex:1;border-top:1.5px solid #0a1f44;padding-top:6px;font-size:.8rem;color:#444;text-align:center}
+    .foot{text-align:center;color:#8a6508;font-size:.82rem;margin-top:20px}
+    @media print{.noprint{display:none}body{margin:0}}</style></head><body>
+    <div class="hd"><div><div class="brand">FAKHTA</div><div class="tag">فاختہ • Flying to Your Door</div></div>
+    <div><span class="badge">INVOICE</span><div class="meta">No: <b>${esc(o.order_no)}</b><br>Date: <b>${esc((o.created_at || '').slice(0, 10))}</b></div></div></div>
+    <div class="boxes">
+      <div class="box bill"><div class="lbl">BILL TO</div><div class="big">${esc(o.customer_name)}</div>
+      <div class="small">Phone: <bdi dir="ltr">${esc(o.phone)}</bdi><br>${esc(o.address)}, ${esc(o.city)}${o.notes ? `<br>Note: ${esc(o.notes)}` : ''}</div></div>
+      <div class="box pay"><div class="lbl">PAYMENT</div><div class="big">${payName}</div><div class="small">${paySub}</div></div>
+    </div>
+    <table><tr><th>#</th><th>Item</th><th style="text-align:center">Qty</th><th style="text-align:right">Price</th><th style="text-align:right">Amount</th></tr>${rows}</table>
+    <div class="totals"><div>Subtotal: ${fmt(o.subtotal)}</div><div class="grand">Grand Total: ${fmt(o.subtotal)}</div></div>
+    <div class="sign"><div>Customer Signature</div><div>Fakhta Store (Authorized)</div></div>
+    <div class="foot">Shukriya! 🕊️ Fakhta — Flying to Your Door</div>
+    <p class="noprint" style="text-align:center"><button onclick="window.print()" style="padding:10px 28px;font-size:1rem;background:#0a1f44;color:#e8c15a;border:none;border-radius:8px;cursor:pointer">🖨️ Print / Save PDF</button></p>
     </body></html>`;
 }
 function printInvoice(o) {
@@ -155,6 +198,14 @@ function waBill(o) {
   const ph = String(o.phone || '').replace(/[^\d]/g, '');
   const l = 'https://wa.me/92' + ph.slice(-10) + '?text=' + encodeURIComponent(billText(o));
   window.open(l, '_blank');
+}
+// one-tap order status update via WhatsApp (admin presses Send in WhatsApp)
+function waUpdate(o) {
+  const ph = String(o.whatsapp || o.phone || '').replace(/[^\d]/g, '');
+  const statusTxt = { new: 'New 🆕', confirmed: 'Confirmed ✅', shipped: 'Shipped 🚚', delivered: 'Delivered 🎉', cancelled: 'Cancelled ❌' }[o.status] || o.status;
+  const payTxt = o.payment_method === 'advance' ? (o.payment_status === 'received' ? ' (Advance payment received ✅)' : ' (Advance payment pending ⏳)') : ' (Cash on Delivery)';
+  const msg = `Assalam-o-Alaikum ${o.customer_name}! 🕊️\nFakhta Store update:\nOrder: ${o.order_no}\nStatus: ${statusTxt}${payTxt}\nTotal: Rs ${Number(o.subtotal).toLocaleString()}\nShukriya! 🙏`;
+  window.open('https://wa.me/92' + ph.slice(-10) + '?text=' + encodeURIComponent(msg), '_blank');
 }
 async function api(path, opts) {
   const r = await fetch(path, Object.assign({ headers: { 'Content-Type': 'application/json' } }, opts || {}));
@@ -318,12 +369,11 @@ function pdQty(d) {
   const el = document.getElementById('pdq');
   el.textContent = Math.max(1, Math.min(99, (+el.textContent) + d));
 }
-function renderCheckout() {
+async function renderCheckout() {
   if (!cart.length) { location.hash = '#/shop'; return; }
   view.innerHTML = `
   <div class="form-card">
     <h2>${esc(T('co_title'))}</h2>
-    <p style="text-align:center;color:var(--gold2);margin-bottom:16px">💵 ${esc(T('co_pay'))}</p>
     <div class="field" id="f_name"><label>${esc(T('co_name'))}</label><input id="co_name" placeholder="${esc(T('ph_name'))}"><div class="err">${esc(T('err_name'))}</div></div>
     <div class="field" id="f_phone"><label>${esc(T('co_phone'))}</label>
       <div style="display:flex;gap:8px"><span class="cc-badge">+92</span>
@@ -335,9 +385,69 @@ function renderCheckout() {
     <div class="field" id="f_address"><label>${esc(T('co_address'))}</label><textarea id="co_address" rows="2" placeholder="${esc(T('ph_address'))}"></textarea><div class="err">${esc(T('err_address'))}</div></div>
     <div class="field" id="f_city"><label>${esc(T('co_city'))}</label><select id="co_city">${cityOptions('')}</select><div class="err">${esc(T('err_city'))}</div></div>
     <div class="field"><label>${esc(T('co_notes'))}</label><textarea id="co_notes" rows="2" placeholder="${esc(T('ph_notes'))}"></textarea></div>
+    <div id="paySection"></div>
     <div class="cart-total"><span>${esc(T('cart_total'))}</span><b>${fmt(cartSum())}</b></div>
     <button class="btn-gold btn-block" onclick="placeOrder()">${esc(T('co_place'))} • ${fmt(cartSum())}</button>
   </div>`;
+  let pi = { cod_enabled: true };
+  try { pi = await api('/api/payment-info'); } catch (e) { /* offline fallback: COD only */ }
+  window._payInfo = pi;
+  const ps = document.getElementById('paySection');
+  if (ps) { ps.innerHTML = paySectionHTML(pi); setPayMethod(pi.cod_enabled ? 'cod' : 'advance'); }
+}
+// ---------- payment method UI ----------
+function paySectionHTML(pi) {
+  const wraw = String(pi.wallet_number || '').replace(/\D/g, '');
+  const wnum = wraw.length >= 10 ? wraw.slice(0, 4) + ' ' + wraw.slice(4) : wraw;
+  const bank = String(pi.bank_account || '').replace(/(\d{4})(?=\d)/g, '$1 ');
+  const bankName = pi.bank_name || 'Askari Bank';
+  const wcard = (logo, alt) => `<div class="pay-logo-card"><img src="${esc(rel('pay-logos/' + logo))}" alt="${alt}"><div class="pay-num" dir="ltr">${esc(wnum)}</div><button class="pay-copy" onclick="copyPay('${esc(wraw)}')">${esc(T('pay_copy'))}</button></div>`;
+  const codCard = pi.cod_enabled ? `<div class="pay-card" data-m="cod" onclick="setPayMethod('cod')"><div class="pay-radio"></div><div class="pay-ic">💵</div><div><div class="pay-name">${esc(T('pay_cod'))}</div><div class="pay-sub">${esc(T('pay_cod_sub'))}</div></div></div>` : '';
+  return `<div class="pay-wrap">
+    <div class="pay-head">${esc(T('pay_title'))}</div><div class="pay-sub2">${esc(T('pay_sub'))}</div>
+    <div class="pay-row">${codCard}<div class="pay-card" data-m="advance" onclick="setPayMethod('advance')"><div class="pay-radio"></div><div class="pay-ic pay-ic-gold">⚡</div><div><div class="pay-name">${esc(T('pay_adv'))}</div><div class="pay-sub">${esc(T('pay_adv_sub'))}</div></div></div></div>
+    <div id="payAdvanceBox" style="display:none"><div class="pay-adv">
+      <div class="pay-label">📱 ${esc(T('pay_wallets'))} <small>• ${esc(T('pay_same'))}</small></div>
+      <div class="pay-logos">${wcard('jazzcash.png', 'JazzCash')}${wcard('easypaisa.png', 'Easypaisa')}${wcard('sadapay.png', 'SadaPay')}${wcard('nayapay.png', 'NayaPay')}</div>
+      <div class="pay-label">🏦 ${esc(T('pay_bank_t'))}</div>
+      <div class="pay-bank"><img src="${esc(rel('pay-logos/askari.png'))}" alt="Askari"><div style="flex:1"><div class="pay-num" dir="ltr">${esc(bank)}</div><div class="pay-bankname">${esc(bankName)}</div></div><button class="pay-copy" onclick="copyPay('${esc(String(pi.bank_account || '').replace(/\D/g, ''))}')">${esc(T('pay_copy'))}</button></div>
+      <div class="pay-qr"><img src="${esc(rel('askari-qr.png'))}"><div>${esc(T('pay_qr'))}</div></div>
+      <div class="pay-label">🧾 ${esc(T('pay_receipt'))}</div>
+      <div class="pay-upload" onclick="document.getElementById('co_receipt').click()">
+        <input type="file" id="co_receipt" accept="image/*" hidden onchange="previewReceipt(this)">
+        <div style="font-size:1.6rem">📤</div><div style="font-weight:800">${esc(T('pay_upload'))}</div>
+        <div style="font-size:.75rem;color:var(--ink-dim)">${esc(T('pay_upload_sub'))}</div>
+        <img id="receiptPrev" style="display:none" alt="receipt">
+      </div>
+      <button class="pay-wa" onclick="waReceipt()">💬 ${esc(T('pay_wa'))}</button>
+      <div style="font-size:.72rem;color:var(--ink-dim);text-align:center;margin:-6px 0 10px">${esc(T('pay_wa_hint'))}</div>
+      <div class="field"><label>${esc(T('pay_txn'))} <small style="color:var(--ink-dim)">(optional)</small></label><input id="co_txn" dir="ltr" placeholder="${esc(T('pay_txn_ph'))}"></div>
+      <div class="pay-sent">✓ ${esc(T('pay_sent'))}</div>
+    </div></div>
+  </div>`;
+}
+function setPayMethod(m) {
+  const pi = window._payInfo || {};
+  if (m === 'cod' && !pi.cod_enabled) { toast(T('err_cod')); return; }
+  window._payMethod = m;
+  document.querySelectorAll('.pay-card').forEach(c => c.classList.toggle('sel', c.dataset.m === m));
+  const box = document.getElementById('payAdvanceBox');
+  if (box) box.style.display = m === 'advance' ? 'block' : 'none';
+}
+function copyPay(txt) {
+  const done = () => toast('Copied ✓');
+  if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(txt).then(done).catch(() => toast(txt));
+  else toast(txt);
+}
+function previewReceipt(input) {
+  const f = input.files && input.files[0]; if (!f) return;
+  const img = document.getElementById('receiptPrev');
+  img.src = URL.createObjectURL(f); img.style.display = 'block';
+}
+function waReceipt() {
+  const pi = window._payInfo || {};
+  const msg = encodeURIComponent('Assalam-o-Alaikum! I placed an order on Fakhta Store with Advance Payment. Here is my payment receipt:');
+  window.open('https://wa.me/' + (pi.whatsapp || '') + '?text=' + msg, '_blank');
 }
 async function placeOrder() {
   const g = id => document.getElementById(id).value.trim();
@@ -352,8 +462,18 @@ async function placeOrder() {
   mark('f_email', !!(email && !/.+@.+\..+/.test(email)));
   mark('f_address', !address); mark('f_city', !city);
   if (!ok) return;
+  const payMethod = window._payMethod || 'cod';
+  const pi = window._payInfo || {};
+  if (payMethod === 'cod' && pi.cod_enabled === false) { toast(T('err_cod')); return; }
+  const txnEl = document.getElementById('co_txn');
+  const txn_id = txnEl ? txnEl.value.trim() : '';
   try {
-    const r = await api('/api/orders', { method: 'POST', body: JSON.stringify({ customer_name: name, phone, whatsapp, email, address, city, notes, items: cart.map(i => ({ id: i.id, qty: i.qty })) }) });
+    const r = await api('/api/orders', { method: 'POST', body: JSON.stringify({ customer_name: name, phone, whatsapp, email, address, city, notes, payment_method: payMethod, txn_id, items: cart.map(i => ({ id: i.id, qty: i.qty })) }) });
+    const rf = document.getElementById('co_receipt');
+    if (rf && rf.files && rf.files[0] && r.order_id) {
+      try { const fd = new FormData(); fd.append('receipt', rf.files[0]); await fetch('api/orders/' + r.order_id + '/receipt', { method: 'POST', body: fd }); }
+      catch (e) { /* receipt optional; order already placed */ }
+    }
     window._lastOrder = { order_no: r.order_no, customer_name: name, phone, address, city, subtotal: r.subtotal, created_at: new Date().toISOString(), items: cart.map(i => ({ name_en: i.name_en, name_ur: i.name_ur, price: i.price, qty: i.qty })) };
     cart = []; saveCart(); renderCart();
     location.hash = '#/success?no=' + r.order_no;
@@ -365,7 +485,6 @@ function renderSuccess() {
     <div class="big">🎉</div><h2>${esc(T('ok_title'))}</h2><p style="color:var(--ink-dim)">${esc(T('ok_msg'))}</p>
     <div class="order-no">${esc(decodeURIComponent(no))}</div><br>
     <div style="display:flex;gap:10px;justify-content:center;flex-wrap:wrap">
-      ${window._lastOrder ? `<button class="btn-ghost" onclick="printInvoice(window._lastOrder)">🧾 ${esc(T('bill'))}</button>` : ''}
       <button class="btn-gold" onclick="location.hash='#/'">${esc(T('ok_home'))}</button></div></div>`;
 }
 function renderTrack() {
@@ -398,7 +517,6 @@ async function doTrack() {
           ${o.courier && COURIER_URL[o.courier] ? `<a class="btn-gold btn-sm" target="_blank" rel="noopener" href="${COURIER_URL[o.courier]}">${esc(T('tr_track_btn'))} 🔗</a>` : ''}
         </div>` : ''}
         <div style="margin-top:6px;color:var(--ink-dim);font-size:.85rem">${fmt(o.subtotal)} • ${esc(o.created_at.slice(0, 10))}</div>
-        <div style="margin-top:8px"><button class="btn-ghost btn-sm" onclick='printInvoice(window._track[${ix}])'>🧾 ${esc(T('bill'))}</button></div>
       </div>`).join('');
     window._track = list;
   } catch (e) { out.innerHTML = `<p class="empty">${esc(e.message)}</p>`; }
@@ -441,6 +559,7 @@ async function renderAdmin(h) {
   if (tab === 'categories') return adminCategories();
   if (tab === 'manual') return adminManual();
   if (tab === 'reports') return adminReports();
+  if (tab === 'margin') return adminMargin();
   if (tab === 'settings') return adminSettings();
   if (tab === 'password') return adminPassword();
   return adminDash();
@@ -451,7 +570,7 @@ function adminShell(active, body) {
       <div><button class="btn-ghost" onclick="location.hash='#/'">🏠 Store</button>
       <button class="btn-danger" onclick="adminLogout()">Logout</button></div></div>
     <div class="tabs">
-      ${[['dash', '📊 Dashboard'], ['orders', '📦 Orders'], ['manual', '📝 New Order'], ['products', '🍽️ Products'], ['categories', '🗂️ Categories'], ['reports', '📊 Reports'], ['settings', '⚙️ Settings'], ['password', '🔑 Password']]
+      ${[['dash', '📊 Dashboard'], ['orders', '📦 Orders'], ['manual', '📝 New Order'], ['products', '🍽️ Products'], ['categories', '🗂️ Categories'], ['reports', '📊 Reports'], ['margin', '💰 Margin/Khata'], ['settings', '⚙️ Settings'], ['password', '🔑 Password']]
         .map(t => `<button class="tab ${active === t[0] ? 'active' : ''}" onclick="location.hash='#/admin/${t[0]}'">${t[1]}</button>`).join('')}
     </div>${body}</div>`;
 }
@@ -522,6 +641,12 @@ async function adminOrderDetail(id) {
   box.innerHTML = `<div class="modal-box">
     <h3>${esc(o.order_no)}${o.cust_count > 1 ? ` <span class="repeat-badge" title="${esc(T('ord_repeat'))}">🔁 ${o.cust_count} ${esc(T('ord_orders'))}</span>` : ''}</h3>
     <p><b>${esc(o.customer_name)}</b> • <span dir="ltr">${esc(o.phone)}</span><br>${esc(o.address)}, ${esc(o.city)}${o.notes ? '<br>📝 ' + esc(o.notes) : ''}</p>
+    ${o.payment_method === 'advance' ? `<div class="pay-admin-box">
+      <div style="font-weight:800;margin-bottom:8px">💳 Advance Payment ${o.payment_status === 'received' ? '<span class="pay-pill ok">✅ Received</span>' : '<span class="pay-pill pend">⏳ Pending</span>'}</div>
+      ${o.txn_id ? `<div style="margin-bottom:6px">Txn ID: <b dir="ltr">${esc(o.txn_id)}</b></div>` : ''}
+      ${o.receipt_path ? `<a href="${esc(rel(o.receipt_path))}" target="_blank"><img src="${esc(rel(o.receipt_path))}" class="pay-receipt-thumb" alt="receipt"></a>` : '<div style="color:var(--ink-dim);font-size:.8rem;margin-bottom:6px">No receipt uploaded</div>'}
+      <div><button class="btn-gold" style="padding:8px 16px;margin-top:6px" onclick="markPayment(${o.id},'${o.payment_status === 'received' ? 'pending' : 'received'}')">${o.payment_status === 'received' ? '↩ Mark as unpaid' : '✅ Payment Received'}</button></div>
+    </div>` : `<div style="margin-bottom:10px"><span class="pay-pill cod">💵 Cash on Delivery</span></div>`}
     <table class="tbl" style="margin:12px 0"><tr><th>Item</th><th>Qty</th><th>Price</th></tr>
     ${o.items.map(i => `<tr><td>${esc(i.name_en)}</td><td>${i.qty}</td><td>${fmt(i.price * i.qty)}</td></tr>`).join('')}</table>
     <div class="field"><label>Status</label><select id="mStatus">${['new', 'confirmed', 'shipped', 'delivered', 'cancelled'].map(s => `<option ${o.status === s ? 'selected' : ''}>${s}</option>`).join('')}</select></div>
@@ -532,17 +657,30 @@ async function adminOrderDetail(id) {
     <div style="display:flex;gap:10px;flex-wrap:wrap"><button class="btn-gold" onclick="saveOrderDetail(${o.id})">Save</button>
     <button class="btn-ghost" onclick="printInvoice(window._curOrder)">🧾 ${esc(T('bill'))}</button>
     <button class="btn-wa" onclick="waBill(window._curOrder)">📱 ${esc(T('wa_bill'))}</button>
+    <button class="btn-wa" onclick="waUpdate(window._curOrder)">💬 WhatsApp Update</button>
     <button class="btn-ghost" onclick="document.getElementById('mDetail').remove()">Close</button></div></div>`;
   box.onclick = e => { if (e.target === box) box.remove(); };
   document.body.appendChild(box);
 }
 async function saveOrderDetail(id) {
-  await api('/api/admin/orders/' + id, { method: 'PUT', body: JSON.stringify({
-    status: document.getElementById('mStatus').value,
-    courier: document.getElementById('mCourier').value,
-    tracking_no: document.getElementById('mTracking').value.trim()
-  }) });
+  try {
+    await api('/api/admin/orders/' + id, { method: 'PUT', body: JSON.stringify({
+      status: document.getElementById('mStatus').value,
+      courier: document.getElementById('mCourier').value,
+      tracking_no: document.getElementById('mTracking').value.trim()
+    }) });
+  } catch (e) {
+    if (e.message === 'payment_pending') { toast('⚠ Pehle "Payment Received" dabao, phir confirm karo!'); return; }
+    toast(e.message); return;
+  }
   document.getElementById('mDetail').remove(); adminOrders();
+}
+async function markPayment(id, st) {
+  try {
+    await api('/api/admin/orders/' + id + '/payment', { method: 'PUT', body: JSON.stringify({ payment_status: st }) });
+    toast(st === 'received' ? 'Payment received ✓' : 'Marked unpaid');
+  } catch (e) { toast(e.message); }
+  adminOrderDetail(id);
 }
 async function adminProducts() {
   const list = await api('/api/admin/products');
@@ -572,8 +710,11 @@ function prodForm(p) {
       <div class="field"><label>Old Price (Rs)</label><input id="pf_old" type="number" value="${p.old_price || ''}"></div>
     </div>
     <div class="row2">
-      <div class="field"><label>Category</label><select id="pf_cat"><option value="">—</option>${cats.map(c => `<option value="${c.id}" ${p.category_id === c.id ? 'selected' : ''}>${esc(c.name_en)}</option>`).join('')}</select></div>
+      <div class="field"><label>💰 Purchase Price (Rs) <small style="color:var(--ink-dim)">khareed rate</small></label><input id="pf_pp" type="number" value="${p.purchase_price || ''}" placeholder="e.g. 267"></div>
       <div class="field"><label>Stock</label><input id="pf_stock" type="number" value="${p.stock == null ? 100 : p.stock}"></div>
+    </div>
+    <div class="row2">
+      <div class="field"><label>Category</label><select id="pf_cat"><option value="">—</option>${cats.map(c => `<option value="${c.id}" ${p.category_id === c.id ? 'selected' : ''}>${esc(c.name_en)}</option>`).join('')}</select></div>
     </div>
     <div class="field"><label>Description (EN)</label><textarea id="pf_de" rows="2">${esc(p.desc_en || '')}</textarea></div>
     <div class="field"><label>Description (UR)</label><textarea id="pf_du" rows="2">${esc(p.desc_ur || '')}</textarea></div>
@@ -601,7 +742,7 @@ async function saveProd(id) {
     name_en: g('pf_en'), name_ur: g('pf_ur'), desc_en: g('pf_de'), desc_ur: g('pf_du'),
     price: +g('pf_price') || 0, old_price: +g('pf_old') || 0, category_id: +g('pf_cat') || null,
     image: g('pf_img'), featured: document.getElementById('pf_feat').checked,
-    stock: +g('pf_stock') || 0, sort: +g('pf_sort') || 0
+    stock: +g('pf_stock') || 0, sort: +g('pf_sort') || 0, purchase_price: +g('pf_pp') || 0
   };
   if (!body.name_en.trim()) { toast('Name required'); return; }
   await api(id ? '/api/admin/products/' + id : '/api/admin/products', { method: id ? 'PUT' : 'POST', body: JSON.stringify(body) });
@@ -682,6 +823,67 @@ async function placeManual() {
   } catch (e) { toast(e.message); }
 }
 // ---------- date-wise reports / ledger ----------
+// ---------- margin report + khata ledger ----------
+async function adminMargin() {
+  const [margins, khata] = await Promise.all([api('/api/admin/margins'), api('/api/admin/khata')]);
+  let totP = 0, totS = 0;
+  const mrows = margins.map(p => {
+    const pp = +p.purchase_price || 0, sp = +p.price || 0, sold = +p.sold || 0;
+    const pr = sp - pp, pct = sp ? Math.round(pr / sp * 100) : 0;
+    totP += pp * sold; totS += sp * sold;
+    const col = pct >= 35 ? '#5ce08a' : (pct >= 25 ? '#e8c15a' : '#ff8a8a');
+    return `<tr><td><b>${esc(p.name_en)}</b></td><td style="text-align:right">${fmt(pp)}</td><td style="text-align:right">${fmt(sp)}</td>
+      <td style="text-align:center">${sold}</td><td style="text-align:right">${fmt(pr * sold)}</td>
+      <td style="text-align:right"><span class="margin-pill" style="background:${col}22;color:${col};border-color:${col}55">${pct}%</span></td>
+      <td><button class="btn-ghost" style="padding:4px 10px" onclick="quickPP(${p.id},'${esc(p.name_en).replace(/'/g, "\\'")}',${pp})">✏️</button></td></tr>`;
+  }).join('');
+  const tpr = totS - totP, tpct = totS ? Math.round(tpr / totS * 100) : 0;
+  const krows = khata.rows.map(k => `<tr><td>${esc(k.entry_date)}</td><td>${esc(k.description) || '—'}</td>
+    <td style="text-align:right;color:#5ce08a">${k.type === 'credit' ? fmt(k.amount) : ''}</td>
+    <td style="text-align:right;color:#ff8a8a">${k.type === 'debit' ? fmt(k.amount) : ''}</td>
+    <td style="text-align:right"><b>${fmt(k.balance)}</b></td>
+    <td><button class="btn-danger" style="padding:4px 10px" onclick="delKhata(${k.id})">✕</button></td></tr>`).join('');
+  adminShell('margin', `<h2 style="margin:6px 0 14px">💰 Margin / Khata</h2>
+  <div class="dash-cards" style="margin-bottom:16px">
+    <div class="dash-card"><div class="dc-label">Total Sale (sold)</div><div class="dc-val">${fmt(totS)}</div></div>
+    <div class="dash-card"><div class="dc-label">Total Khareed (sold)</div><div class="dc-val">${fmt(totP)}</div></div>
+    <div class="dash-card"><div class="dc-label">Khaalis Munafa</div><div class="dc-val" style="color:#5ce08a">${fmt(tpr)} (${tpct}%)</div></div>
+    <div class="dash-card"><div class="dc-label">Khata Balance</div><div class="dc-val" style="color:${khata.balance >= 0 ? '#5ce08a' : '#ff8a8a'}">${fmt(khata.balance)}</div></div>
+  </div>
+  <div class="form-card"><h3>📋 Purchase Price List — har item ka margin</h3>
+  <p style="color:var(--ink-dim);font-size:.82rem">Purchase price product edit me dalein — margin auto niklega. ✏️ se foran edit karein.</p>
+  <div style="overflow-x:auto"><table class="tbl"><tr><th>Product</th><th style="text-align:right">Khareed</th><th style="text-align:right">Sale</th><th style="text-align:center">Sold</th><th style="text-align:right">Munafa</th><th style="text-align:right">Margin</th><th></th></tr>${mrows || '<tr><td colspan="7" style="text-align:center;color:var(--ink-dim)">No products</td></tr>'}</table></div></div>
+  <div class="form-card"><h3>📒 Khata — udhar / kharcha</h3>
+  <div class="row2"><div class="field"><label>Date</label><input type="date" id="kh_date" value="${new Date().toISOString().slice(0, 10)}"></div>
+  <div class="field"><label>Type</label><select id="kh_type"><option value="debit">Debit (− kharcha/udhar diya)</option><option value="credit">Credit (+ aaya/wusool)</option></select></div></div>
+  <div class="row2"><div class="field"><label>Amount (Rs)</label><input type="number" id="kh_amt" placeholder="e.g. 5000"></div>
+  <div class="field"><label>Description</label><input id="kh_desc" placeholder="e.g. Packing kharcha"></div></div>
+  <button class="btn-gold" onclick="addKhata()">+ Add Entry</button>
+  <div style="overflow-x:auto;margin-top:14px"><table class="tbl"><tr><th>Date</th><th>Description</th><th style="text-align:right">Credit +</th><th style="text-align:right">Debit −</th><th style="text-align:right">Balance</th><th></th></tr>${krows || '<tr><td colspan="6" style="text-align:center;color:var(--ink-dim)">No entries yet</td></tr>'}</table></div></div>`);
+}
+async function quickPP(id, name, cur) {
+  const v = prompt('Purchase price for ' + name + ' (Rs):', cur || '');
+  if (v === null) return;
+  const pp = parseFloat(v) || 0;
+  const p = await api('/api/admin/products').then(l => l.find(x => x.id === id));
+  p.purchase_price = pp;
+  await api('/api/admin/products/' + id, { method: 'PUT', body: JSON.stringify(p) });
+  toast('Saved ✓'); adminMargin();
+}
+async function addKhata() {
+  const amt = parseFloat(document.getElementById('kh_amt').value) || 0;
+  if (!amt) { toast('Amount likho!'); return; }
+  await api('/api/admin/khata', { method: 'POST', body: JSON.stringify({
+    entry_date: document.getElementById('kh_date').value,
+    type: document.getElementById('kh_type').value,
+    amount: amt, description: document.getElementById('kh_desc').value.trim() }) });
+  toast('Added ✓'); adminMargin();
+}
+async function delKhata(id) {
+  if (!confirm('Delete this entry?')) return;
+  await api('/api/admin/khata/' + id, { method: 'DELETE' });
+  adminMargin();
+}
 async function adminReports() {
   const today = new Date().toISOString().slice(0, 10);
   const week = new Date(Date.now() - 6 * 864e5).toISOString().slice(0, 10);
@@ -718,12 +920,21 @@ async function adminSettings() {
     <p style="color:var(--ink-dim)">Ye number site par (footer + WhatsApp buttons) show hoga.</p>
     <div class="field"><label>WhatsApp number (e.g. 923001234567)</label><input id="st_wa" dir="ltr" value="${esc(s.store_whatsapp)}" placeholder="923001234567"></div>
     <div class="field"><label>Phone display (e.g. 0300-1234567)</label><input id="st_ph" dir="ltr" value="${esc(s.store_phone)}"></div>
+    <h3 style="margin:18px 0 10px;color:var(--gold)">💳 Payment Settings</h3>
+    <div class="field"><label style="display:flex;align-items:center;gap:10px;cursor:pointer"><input type="checkbox" id="st_cod" ${s.cod_enabled ? 'checked' : ''} style="width:20px;height:20px"> Cash on Delivery enabled</label>
+    <small class="hint">Uncheck karo to customer sirf Advance Payment kar sakega</small></div>
+    <div class="field"><label>Mobile wallet number (Easypaisa / JazzCash / NayaPay / SadaPay)</label><input id="st_wallet" dir="ltr" inputmode="numeric" value="${esc(s.pay_wallet || '')}" placeholder="03001234567"></div>
+    <div class="field"><label>Bank account number</label><input id="st_bank" dir="ltr" inputmode="numeric" value="${esc(s.pay_bank || '')}"></div>
+    <div class="field"><label>Bank name</label><input id="st_bankname" value="${esc(s.pay_bank_name || '')}" placeholder="Askari Bank"></div>
     <button class="btn-gold btn-block" onclick="saveSettings()">Save</button></div>`);
 }
 async function saveSettings() {
   try {
     await api('/api/admin/settings', { method: 'PUT', body: JSON.stringify({
-      store_whatsapp: document.getElementById('st_wa').value, store_phone: document.getElementById('st_ph').value }) });
+      store_whatsapp: document.getElementById('st_wa').value, store_phone: document.getElementById('st_ph').value,
+      cod_enabled: document.getElementById('st_cod').checked,
+      pay_wallet: document.getElementById('st_wallet').value, pay_bank: document.getElementById('st_bank').value,
+      pay_bank_name: document.getElementById('st_bankname').value }) });
     toast('Saved ✓'); loadStore();
   } catch (e) { toast(e.message); }
 }

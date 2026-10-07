@@ -119,6 +119,51 @@ button{font:inherit;cursor:pointer}
 select option,select optgroup{color:#111;background:#fff}
 .cc-badge{background:var(--gold);color:#0a1f44;font-weight:800;border-radius:10px;padding:12px 12px;display:flex;align-items:center;white-space:nowrap}
 .hint{display:block;color:var(--ink-dim);font-size:.78rem;margin-top:4px}
+/* ---- payment method (checkout) ---- */
+.pay-wrap{margin:4px 0 16px}
+.pay-head{font-weight:800;font-size:1.05rem;color:var(--gold);margin-bottom:2px}
+.pay-sub2{color:var(--ink-dim);font-size:.8rem;margin-bottom:12px}
+.pay-row{display:flex;gap:10px;margin-bottom:4px}
+.pay-card{flex:1;display:flex;gap:10px;align-items:center;background:rgba(255,255,255,.04);border:1.5px solid rgba(255,255,255,.12);border-radius:14px;padding:13px 12px;cursor:pointer}
+.pay-card.sel{border-color:var(--gold);background:rgba(232,193,90,.08);box-shadow:0 0 18px rgba(232,193,90,.22)}
+.pay-radio{width:20px;height:20px;border-radius:50%;border:2px solid #8f89b8;flex:0 0 20px}
+.pay-card.sel .pay-radio{border-color:var(--gold);background:var(--gold);box-shadow:inset 0 0 0 3px #141432}
+.pay-ic{font-size:1.4rem}
+.pay-name{font-weight:800;font-size:.88rem}
+.pay-sub{color:var(--ink-dim);font-size:.72rem;margin-top:2px}
+.pay-adv{background:rgba(232,193,90,.06);border:1.5px solid rgba(232,193,90,.4);border-radius:14px;padding:14px;margin-top:10px}
+.pay-label{font-weight:800;font-size:.8rem;color:var(--gold);margin:12px 0 8px;letter-spacing:.5px}
+.pay-label:first-child{margin-top:0}
+.pay-label small{color:var(--ink-dim);font-weight:400}
+.pay-logos{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.pay-logo-card{background:#fff;border-radius:12px;padding:10px 8px;text-align:center}
+.pay-logo-card img{height:30px;max-width:100%;object-fit:contain;margin-bottom:6px}
+.pay-num{font-weight:800;color:#0a1f44;letter-spacing:.5px;font-size:.92rem}
+.pay-copy{background:#0a1f44;color:var(--gold);border:none;font-size:.62rem;font-weight:800;letter-spacing:1px;padding:8px 0;border-radius:8px;margin-top:8px;width:100%;cursor:pointer}
+.pay-bank{display:flex;gap:10px;align-items:center;background:#fff;border-radius:12px;padding:10px}
+.pay-bank img{height:32px;object-fit:contain}
+.pay-bank .pay-copy{width:auto;padding:8px 14px;margin-top:0}
+.pay-bankname{font-size:.7rem;color:#8a86ad}
+.pay-qr{text-align:center;margin:12px 0}
+.pay-qr img{width:140px;border-radius:10px;border:2px solid var(--gold);padding:5px;background:#fff}
+.pay-qr div{font-size:.7rem;color:var(--ink-dim);margin-top:6px}
+.pay-upload{border:2px dashed #8f89b8;border-radius:12px;padding:18px 14px;text-align:center;cursor:pointer;margin-bottom:10px}
+.pay-upload img{max-width:160px;border-radius:8px;margin-top:10px;border:1px solid var(--gold)}
+.pay-wa{width:100%;background:#25D366;color:#fff;border:none;border-radius:12px;padding:14px;font-weight:800;font-size:.92rem;cursor:pointer;margin-bottom:4px}
+.pay-sent{display:flex;gap:8px;align-items:center;background:rgba(92,224,138,.1);border:1px solid rgba(92,224,138,.4);border-radius:10px;padding:10px 12px;font-size:.76rem;color:#b9e8c9;margin-top:10px}
+/* ---- payment (admin) ---- */
+.pay-admin-box{background:rgba(232,193,90,.07);border:1px solid rgba(232,193,90,.4);border-radius:12px;padding:12px 14px;margin-bottom:12px}
+.pay-pill{display:inline-block;font-size:.72rem;font-weight:800;padding:4px 12px;border-radius:20px;margin-left:6px}
+.pay-pill.ok{background:rgba(92,224,138,.15);color:#5ce08a;border:1px solid rgba(92,224,138,.5)}
+.pay-pill.pend{background:rgba(232,193,90,.12);color:var(--gold);border:1px solid rgba(232,193,90,.5)}
+.pay-pill.cod{background:rgba(255,255,255,.06);color:#cfc9ea;border:1px solid rgba(255,255,255,.2)}
+.pay-receipt-thumb{max-width:120px;border-radius:8px;border:1px solid var(--gold);cursor:pointer}
+/* ---- margin / khata ---- */
+.margin-pill{display:inline-block;font-size:.76rem;font-weight:800;padding:5px 10px;border-radius:8px;border:1px solid}
+.dash-cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px}
+.dash-card{background:#1e1e4a;border:1px solid #3a3a6e;border-radius:12px;padding:14px}
+.dc-label{font-size:.72rem;color:var(--ink-dim);letter-spacing:.5px}
+.dc-val{font-size:1.25rem;font-weight:800;color:var(--gold);margin-top:4px}
 .field .err{color:var(--danger);font-size:.8rem;margin-top:4px;display:none}
 .field.invalid input{border-color:var(--danger)}
 .field.invalid .err{display:block}

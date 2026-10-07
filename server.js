@@ -73,6 +73,25 @@ try { db.exec(`ALTER TABLE orders ADD COLUMN email TEXT NOT NULL DEFAULT ''`); }
 catch (e) { /* column already exists */ }
 try { db.exec(`ALTER TABLE orders ADD COLUMN whatsapp TEXT NOT NULL DEFAULT ''`); }
 catch (e) { /* column already exists */ }
+// v1.5 migration: advance payment (method, status, txn id, receipt)
+try { db.exec(`ALTER TABLE orders ADD COLUMN payment_method TEXT NOT NULL DEFAULT 'cod'`); }
+catch (e) { /* column already exists */ }
+try { db.exec(`ALTER TABLE orders ADD COLUMN payment_status TEXT NOT NULL DEFAULT 'pending'`); }
+catch (e) { /* column already exists */ }
+try { db.exec(`ALTER TABLE orders ADD COLUMN txn_id TEXT NOT NULL DEFAULT ''`); }
+catch (e) { /* column already exists */ }
+try { db.exec(`ALTER TABLE orders ADD COLUMN receipt_path TEXT NOT NULL DEFAULT ''`); }
+catch (e) { /* column already exists */ }
+// v1.6 migration: product purchase price (for margin report)
+try { db.exec(`ALTER TABLE products ADD COLUMN purchase_price REAL NOT NULL DEFAULT 0`); }
+catch (e) { /* column already exists */ }
+// khata (credit/debit ledger) table
+db.exec(`CREATE TABLE IF NOT EXISTS khata (
+  id INTEGER PRIMARY KEY AUTOINCREMENT, entry_date TEXT NOT NULL DEFAULT (date('now','localtime')),
+  type TEXT NOT NULL DEFAULT 'debit', amount REAL NOT NULL DEFAULT 0, description TEXT NOT NULL DEFAULT '',
+  created_at TEXT NOT NULL DEFAULT (datetime('now','localtime')))`);
+// receipts upload dir
+try { fs.mkdirSync(path.join(__dirname, 'public', 'receipts'), { recursive: true }); } catch (e) {}
 
 // ---------- seed data ----------
 function seed() {
@@ -84,6 +103,11 @@ function seed() {
     ins.run('Electronics', 'الیکٹرانکس', 1, 3);
     console.log('[fakhta] seeded categories');
   }
+  // payment settings defaults (admin can change in Settings; shown publicly at checkout)
+  if (!sGet('cod_enabled')) sSet('cod_enabled', '1');
+  if (!sGet('pay_wallet')) sSet('pay_wallet', '03002454605');
+  if (!sGet('pay_bank')) sSet('pay_bank', '08010200012383');
+  if (!sGet('pay_bank_name')) sSet('pay_bank_name', 'Askari Bank');
   const prodCount = db.prepare('SELECT COUNT(*) c FROM products').get().c;
   if (prodCount === 0) {
     const dinnerId = db.prepare("SELECT id FROM categories WHERE name_en='Dinner Sets'").get().id;
@@ -179,6 +203,16 @@ function requireAdmin(req, res, next) {
 }
 
 // ---------- public APIs ----------
+
+// public payment info for checkout (numbers admin set; never hardcoded in frontend)
+app.get('/api/payment-info', (req, res) => {
+  res.json({
+    cod_enabled: sGet('cod_enabled') !== '0',
+    wallet_number: sGet('pay_wallet'), bank_account: sGet('pay_bank'),
+    bank_name: sGet('pay_bank_name') || 'Askari Bank',
+    whatsapp: sGet('store_whatsapp')
+  });
+});
 app.get('/api/categories', (req, res) => {
   res.json(db.prepare('SELECT * FROM categories ORDER BY sort, id').all());
 });
@@ -197,7 +231,7 @@ app.get('/api/products/:id', (req, res) => {
   res.json(p);
 });
 app.post('/api/orders', (req, res) => {
-  const { customer_name, phone, address, city, notes, items, source, email, whatsapp } = req.body || {};
+  const { customer_name, phone, address, city, notes, items, source, email, whatsapp, payment_method, txn_id } = req.body || {};
   const src = ['online', 'manual', 'whatsapp'].includes(source) ? source : 'online';
   if (!customer_name || !String(customer_name).trim()) return res.status(400).json({ error: 'name_required' });
   const ph = String(phone || '').replace(/[\s-]/g, '');
@@ -206,6 +240,9 @@ app.post('/api/orders', (req, res) => {
   if (!wa) wa = ph; else if (!/^03\d{9}$/.test(wa)) return res.status(400).json({ error: 'whatsapp_invalid' });
   const em = String(email || '').trim();
   if (em && !/.+@.+\..+/.test(em)) return res.status(400).json({ error: 'email_invalid' });
+  const pm = payment_method === 'advance' ? 'advance' : 'cod';
+  if (pm === 'cod' && sGet('cod_enabled') === '0') return res.status(400).json({ error: 'cod_disabled' });
+  const txn = String(txn_id || '').replace(/[^a-zA-Z0-9-]/g, '').slice(0, 40);
   if (!address || !String(address).trim()) return res.status(400).json({ error: 'address_required' });
   if (!city || !String(city).trim()) return res.status(400).json({ error: 'city_required' });
   if (!Array.isArray(items) || items.length === 0) return res.status(400).json({ error: 'empty_cart' });
@@ -220,11 +257,25 @@ app.post('/api/orders', (req, res) => {
     subtotal += p.price * qty;
   }
   const no = orderNo();
-  const info = db.prepare(`INSERT INTO orders (order_no, customer_name, phone, address, city, notes, subtotal, source, email, whatsapp)
-    VALUES (?,?,?,?,?,?,?,?,?,?)`).run(no, String(customer_name).trim(), ph, String(address).trim(), String(city).trim(), String(notes || '').trim(), subtotal, src, em, wa);
+  const info = db.prepare(`INSERT INTO orders (order_no, customer_name, phone, address, city, notes, subtotal, source, email, whatsapp, payment_method, payment_status, txn_id)
+    VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)`).run(no, String(customer_name).trim(), ph, String(address).trim(), String(city).trim(), String(notes || '').trim(), subtotal, src, em, wa, pm, 'pending', txn);
   const iins = db.prepare('INSERT INTO order_items (order_id, product_id, name_en, name_ur, price, qty) VALUES (?,?,?,?,?,?)');
   for (const l of lines) iins.run(info.lastInsertRowid, l.product_id, l.name_en, l.name_ur, l.price, l.qty);
-  res.json({ ok: true, order_no: no, subtotal });
+  res.json({ ok: true, order_no: no, subtotal, order_id: info.lastInsertRowid });
+});
+// payment receipt upload (image only, ≤5MB, only for fresh 'new' orders)
+const receiptUpload = multer({
+  dest: path.join(__dirname, 'public', 'receipts'),
+  limits: { fileSize: 5 * 1024 * 1024 },
+  fileFilter: (req, file, cb) => cb(null, /^image\//.test(file.mimetype))
+});
+app.post('/api/orders/:id/receipt', receiptUpload.single('receipt'), (req, res) => {
+  const o = db.prepare('SELECT id, status FROM orders WHERE id=?').get(req.params.id);
+  if (!o || o.status !== 'new') { if (req.file) fs.unlink(req.file.path, () => {}); return res.status(404).json({ error: 'not_found' }); }
+  if (!req.file) return res.status(400).json({ error: 'no_file' });
+  const relp = 'receipts/' + req.file.filename;
+  db.prepare('UPDATE orders SET receipt_path=? WHERE id=?').run(relp, o.id);
+  res.json({ ok: true, path: relp });
 });
 app.get('/api/track', (req, res) => {
   const ph = String(req.query.phone || '').replace(/[\s-]/g, '');
@@ -281,12 +332,18 @@ app.post('/api/admin/change-password', requireAdmin, (req, res) => {
 
 // store settings (WhatsApp / phone shown on site; admin sets, never hardcoded)
 app.get('/api/admin/settings', requireAdmin, (req, res) => {
-  res.json({ store_whatsapp: sGet('store_whatsapp'), store_phone: sGet('store_phone') });
+  res.json({ store_whatsapp: sGet('store_whatsapp'), store_phone: sGet('store_phone'),
+    cod_enabled: sGet('cod_enabled') !== '0', pay_wallet: sGet('pay_wallet'),
+    pay_bank: sGet('pay_bank'), pay_bank_name: sGet('pay_bank_name') });
 });
 app.put('/api/admin/settings', requireAdmin, (req, res) => {
   const b = req.body || {};
   if (b.store_whatsapp !== undefined) sSet('store_whatsapp', String(b.store_whatsapp).replace(/[^\d]/g, '').slice(0, 15));
   if (b.store_phone !== undefined) sSet('store_phone', String(b.store_phone).slice(0, 30));
+  if (b.cod_enabled !== undefined) sSet('cod_enabled', b.cod_enabled ? '1' : '0');
+  if (b.pay_wallet !== undefined) sSet('pay_wallet', String(b.pay_wallet).replace(/[^\d]/g, '').slice(0, 15));
+  if (b.pay_bank !== undefined) sSet('pay_bank', String(b.pay_bank).replace(/[^\d]/g, '').slice(0, 30));
+  if (b.pay_bank_name !== undefined) sSet('pay_bank_name', String(b.pay_bank_name).slice(0, 60));
   res.json({ ok: true });
 });
 
@@ -350,6 +407,11 @@ app.put('/api/admin/orders/:id', requireAdmin, (req, res) => {
   const sets = [], args = [];
   if (status !== undefined) {
     if (!VALID_STATUS.includes(String(status))) return res.status(400).json({ error: 'bad_status' });
+    if (String(status) === 'confirmed') {
+      const o = db.prepare('SELECT payment_method, payment_status FROM orders WHERE id=?').get(req.params.id);
+      if (o && o.payment_method === 'advance' && o.payment_status !== 'received')
+        return res.status(400).json({ error: 'payment_pending' });
+    }
     sets.push('status=?'); args.push(String(status));
   }
   if (courier !== undefined) { sets.push('courier=?'); args.push(String(courier).slice(0, 60)); }
@@ -357,6 +419,38 @@ app.put('/api/admin/orders/:id', requireAdmin, (req, res) => {
   if (!sets.length) return res.status(400).json({ error: 'nothing_to_update' });
   args.push(req.params.id);
   db.prepare(`UPDATE orders SET ${sets.join(', ')} WHERE id=?`).run(...args);
+  res.json({ ok: true });
+});
+// mark advance payment received / pending (admin)
+app.put('/api/admin/orders/:id/payment', requireAdmin, (req, res) => {
+  const st = req.body && req.body.payment_status === 'received' ? 'received' : 'pending';
+  db.prepare('UPDATE orders SET payment_status=? WHERE id=?').run(st, req.params.id);
+  res.json({ ok: true });
+});
+// margin report: purchase vs sale per product + sold qty + profit
+app.get('/api/admin/margins', requireAdmin, (req, res) => {
+  const rows = db.prepare(`SELECT p.id, p.name_en, p.name_ur, p.price, COALESCE(p.purchase_price,0) purchase_price,
+    COALESCE((SELECT SUM(qty) FROM order_items oi JOIN orders o ON o.id=oi.order_id WHERE oi.product_id=p.id AND o.status != 'cancelled'),0) sold
+    FROM products p ORDER BY p.sort, p.id`).all();
+  res.json(rows);
+});
+// khata (credit/debit ledger)
+app.get('/api/admin/khata', requireAdmin, (req, res) => {
+  const rows = db.prepare(`SELECT *, (SELECT COALESCE(SUM(CASE WHEN type='credit' THEN amount ELSE -amount END),0) FROM khata k2 WHERE k2.id <= k.id) balance FROM khata k ORDER BY id DESC LIMIT 200`).all();
+  const t = db.prepare(`SELECT COALESCE(SUM(CASE WHEN type='credit' THEN amount ELSE -amount END),0) balance, COALESCE(SUM(CASE WHEN type='credit' THEN amount ELSE 0 END),0) credit, COALESCE(SUM(CASE WHEN type='debit' THEN amount ELSE 0 END),0) debit FROM khata`).get();
+  res.json({ rows, ...t });
+});
+app.post('/api/admin/khata', requireAdmin, (req, res) => {
+  const b = req.body || {};
+  const type = b.type === 'credit' ? 'credit' : 'debit';
+  const amount = Math.abs(parseFloat(b.amount)) || 0;
+  if (!amount) return res.status(400).json({ error: 'bad_amount' });
+  const d = /^\d{4}-\d{2}-\d{2}$/.test(String(b.entry_date || '')) ? b.entry_date : new Date().toISOString().slice(0, 10);
+  const r = db.prepare('INSERT INTO khata (entry_date, type, amount, description) VALUES (?,?,?,?)').run(d, type, amount, String(b.description || '').slice(0, 200));
+  res.json({ ok: true, id: r.lastInsertRowid });
+});
+app.delete('/api/admin/khata/:id', requireAdmin, (req, res) => {
+  db.prepare('DELETE FROM khata WHERE id=?').run(req.params.id);
   res.json({ ok: true });
 });
 app.get('/api/admin/categories', requireAdmin, (req, res) => {
@@ -386,24 +480,24 @@ app.post('/api/admin/products', requireAdmin, (req, res) => {
   const b = req.body || {};
   if (!b.name_en || !String(b.name_en).trim()) return res.status(400).json({ error: 'name_required' });
   const r = db.prepare(`INSERT INTO products
-    (name_en, name_ur, desc_en, desc_ur, price, old_price, category_id, image, featured, stock, sort)
-    VALUES (?,?,?,?,?,?,?,?,?,?,?)`).run(
+    (name_en, name_ur, desc_en, desc_ur, price, old_price, category_id, image, featured, stock, sort, purchase_price)
+    VALUES (?,?,?,?,?,?,?,?,?,?,?,?)`).run(
     String(b.name_en).trim(), String(b.name_ur || '').trim(),
     String(b.desc_en || '').trim(), String(b.desc_ur || '').trim(),
     parseInt(b.price) || 0, parseInt(b.old_price) || 0,
     b.category_id || null, String(b.image || ''), b.featured ? 1 : 0,
-    parseInt(b.stock) || 0, parseInt(b.sort) || 0);
+    parseInt(b.stock) || 0, parseInt(b.sort) || 0, parseFloat(b.purchase_price) || 0);
   res.json({ ok: true, id: r.lastInsertRowid });
 });
 app.put('/api/admin/products/:id', requireAdmin, (req, res) => {
   const b = req.body || {};
   db.prepare(`UPDATE products SET name_en=?, name_ur=?, desc_en=?, desc_ur=?, price=?, old_price=?,
-    category_id=?, image=?, featured=?, stock=?, sort=? WHERE id=?`).run(
+    category_id=?, image=?, featured=?, stock=?, sort=?, purchase_price=? WHERE id=?`).run(
     String(b.name_en).trim(), String(b.name_ur || '').trim(),
     String(b.desc_en || '').trim(), String(b.desc_ur || '').trim(),
     parseInt(b.price) || 0, parseInt(b.old_price) || 0,
     b.category_id || null, String(b.image || ''), b.featured ? 1 : 0,
-    parseInt(b.stock) || 0, parseInt(b.sort) || 0, req.params.id);
+    parseInt(b.stock) || 0, parseInt(b.sort) || 0, parseFloat(b.purchase_price) || 0, req.params.id);
   res.json({ ok: true });
 });
 app.delete('/api/admin/products/:id', requireAdmin, (req, res) => {
