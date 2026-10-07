@@ -240,7 +240,7 @@ async function renderHome() {
     <div class="cat-grid">${cats.map(c => `
       <div class="cat-card" onclick="location.hash='#/shop?cat=${c.id}'">
         ${c.coming_soon ? `<span class="soon">${esc(T('coming_soon'))}</span>` : ''}
-        <div class="cat-ico">${c.name_en === 'Dinner Sets' ? '🍽️' : c.name_en === 'Crockery' ? '☕' : '🔌'}</div>
+        <div class="cat-ico">${({'Dinner Sets':'🍽️','Crockery':'☕','Grocery':'🛒','Personal Care':'🧴','Electronics':'💡'}[c.name_en] || '🛍️')}</div>
         <h3>${esc(cname(c))}</h3>
         <small>${c.coming_soon ? esc(T('coming_soon')) : (PRODS.filter(p => p.category_id === c.id).length + ' ' + esc(T('tr_items')))}</small>
       </div>`).join('')}</div>
@@ -258,7 +258,7 @@ async function renderHome() {
 let shopCat = '', shopQ = '';
 async function renderShop() {
   const m = (location.hash.match(/cat=(\d+)/) || [])[1];
-  if (m) shopCat = m;
+  shopCat = m || '';
   const list = PRODS.filter(p =>
     (!shopCat || String(p.category_id) === String(shopCat)) &&
     (!shopQ || (p.name_en + ' ' + p.name_ur + ' ' + p.desc_en).toLowerCase().includes(shopQ.toLowerCase())));
