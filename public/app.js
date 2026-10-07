@@ -13,8 +13,8 @@ en: {
   slogan:'Khubsurti, ab aap ke ghar tak',
   hero_sub:'Premium dinner sets, crockery & home essentials — crafted for elegance. Cash on Delivery across Pakistan.',
   hero_cta:'Shop Now', hero_cta2:'Explore Collections',
-  cat_title:'Shop by Category', feat_title:'Featured Collection',
-  feat_sub:'Handpicked luxury dinner sets for your home',
+  cat_title:'Shop by Category', feat_title:'Our Products',
+  feat_sub:'Quality groceries & personal care, delivered to your door',
   see_all:'See All →', add_cart:'Add to Cart', order_now:'Order Now',
   trust1:['Free Delivery','Across Pakistan'], trust2:['Cash on Delivery','Pay at your door'], trust3:['7-Day Returns','Easy & quick'], trust4:['Premium Quality','Handpicked items'],
   search_ph:'Search dinner sets, crockery…', coming_soon:'Coming Soon',
@@ -43,8 +43,8 @@ ur: {
   slogan:'خوبصورتی، اب آپ کے گھر تک',
   hero_sub:'شاندار ڈنر سیٹس، کروکری اور گھر کی ضروریات — نفاست کے ساتھ۔ پاکستان بھر میں کیش آن ڈیلیوری۔',
   hero_cta:'ابھی خریدیں', hero_cta2:'کلیکشن دیکھیں',
-  cat_title:'کیٹیگری کے حساب سے خریدیں', feat_title:'نمایاں کلیکشن',
-  feat_sub:'آپ کے گھر کے لیے منتخب شاندار ڈنر سیٹس',
+  cat_title:'کیٹیگری کے حساب سے خریدیں', feat_title:'ہماری مصنوعات',
+  feat_sub:'معیاری گروسری اور ذاتی نگہداشت، آپ کے دروازے تک',
   see_all:'سب دیکھیں ←', add_cart:'ٹوکری میں ڈالیں', order_now:'آرڈر کریں',
   trust1:['مفت ڈیلیوری','پورے پاکستان میں'], trust2:['کیش آن ڈیلیوری','دروازے پر ادائیگی'], trust3:['7 دن میں واپسی','آسان اور تیز'], trust4:['اعلیٰ معیار','منتخب اشیاء'],
   search_ph:'ڈنر سیٹ، کروکری تلاش کریں…', coming_soon:'جلد آ رہا ہے',
@@ -219,7 +219,7 @@ function prodCard(p) {
     </div></div>`;
 }
 async function renderHome() {
-  const cats = CATS, feat = PRODS.filter(p => p.featured);
+  const cats = CATS, feat = PRODS;
   view.innerHTML = `
   <section class="hero hero-video">
     <video class="hero-bg" autoplay muted loop playsinline preload="metadata" poster="hero-golden-poster.jpg">
