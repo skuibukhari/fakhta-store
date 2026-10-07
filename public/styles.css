@@ -116,6 +116,7 @@ button{font:inherit;cursor:pointer}
 .field input,.field textarea,.field select{width:100%;background:rgba(255,255,255,.05);border:1.5px solid var(--line);
   border-radius:10px;padding:12px 14px;color:var(--ink);font:inherit}
 .field input:focus,.field textarea:focus{outline:none;border-color:var(--gold)}
+select option,select optgroup{color:#111;background:#fff}
 .field .err{color:var(--danger);font-size:.8rem;margin-top:4px;display:none}
 .field.invalid input{border-color:var(--danger)}
 .field.invalid .err{display:block}

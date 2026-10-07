@@ -10,8 +10,8 @@ const rel = p => String(p || '').replace(/^\//, '');
 const I18N = {
 en: {
   nav_home:'Home', nav_shop:'Shop', nav_track:'Track Order', nav_cart:'Cart',
-  slogan:'Khubsurti, ab aap ke ghar tak',
-  hero_sub:'Premium dinner sets, crockery & home essentials — crafted for elegance. Cash on Delivery across Pakistan.',
+  slogan:'FAKHTA, Flying to Your Door',
+  hero_sub:'Daily essentials — groceries, personal care & more. Fair prices, Cash on Delivery across Pakistan.',
   hero_cta:'Shop Now', hero_cta2:'Explore Collections',
   cat_title:'Shop by Category', feat_title:'Our Products',
   feat_sub:'Quality groceries & personal care, delivered to your door',
@@ -40,8 +40,8 @@ en: {
 },
 ur: {
   nav_home:'ہوم', nav_shop:'دکان', nav_track:'آرڈر ٹریک کریں', nav_cart:'ٹوکری',
-  slogan:'خوبصورتی، اب آپ کے گھر تک',
-  hero_sub:'شاندار ڈنر سیٹس، کروکری اور گھر کی ضروریات — نفاست کے ساتھ۔ پاکستان بھر میں کیش آن ڈیلیوری۔',
+  slogan:'فاختہ، آپ کے دروازے تک پرواز',
+  hero_sub:'روز مرہ کی ہر ضرورت — گروسری، ذاتی نگہداشت اور بہت کچھ۔ مناسب دام، پاکستان بھر میں کیش آن ڈیلیوری۔',
   hero_cta:'ابھی خریدیں', hero_cta2:'کلیکشن دیکھیں',
   cat_title:'کیٹیگری کے حساب سے خریدیں', feat_title:'ہماری مصنوعات',
   feat_sub:'معیاری گروسری اور ذاتی نگہداشت، آپ کے دروازے تک',
