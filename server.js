@@ -92,6 +92,18 @@ db.exec(`CREATE TABLE IF NOT EXISTS khata (
   created_at TEXT NOT NULL DEFAULT (datetime('now','localtime')))`);
 // receipts upload dir
 try { fs.mkdirSync(path.join(__dirname, 'public', 'receipts'), { recursive: true }); } catch (e) {}
+// banners upload dir (homepage flyer/banner carousel)
+try { fs.mkdirSync(path.join(__dirname, 'public', 'banners'), { recursive: true }); } catch (e) {}
+// banners table (homepage flyer carousel, managed from admin)
+db.exec(`CREATE TABLE IF NOT EXISTS banners (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  title TEXT NOT NULL DEFAULT '',
+  image TEXT NOT NULL DEFAULT '',
+  link_url TEXT NOT NULL DEFAULT '',
+  sort_order INTEGER NOT NULL DEFAULT 0,
+  active INTEGER NOT NULL DEFAULT 1,
+  created_at TEXT NOT NULL DEFAULT (datetime('now'))
+)`);
 
 // ---------- seed data ----------
 function seed() {
@@ -510,6 +522,54 @@ app.post('/api/admin/upload', requireAdmin, upload.single('image'), (req, res) =
   const name = 'u' + Date.now() + ext;
   fs.renameSync(req.file.path, path.join(uploadDir, name));
   res.json({ ok: true, url: '/products/' + name });
+});
+
+// ---------- banners (homepage flyer carousel) ----------
+// public: active banners only, sorted
+app.get('/api/banners', (req, res) => {
+  res.json(db.prepare('SELECT id, title, image, link_url FROM banners WHERE active=1 ORDER BY sort_order, id').all());
+});
+// banner image upload (image only, ≤5MB)
+const bannerUploadDir = path.join(__dirname, 'public', 'banners');
+const bannerUpload = multer({
+  dest: bannerUploadDir,
+  limits: { fileSize: 5 * 1024 * 1024 },
+  fileFilter: (req, file, cb) => cb(null, /^image\//.test(file.mimetype))
+});
+app.post('/api/admin/banner-upload', requireAdmin, bannerUpload.single('image'), (req, res) => {
+  if (!req.file) return res.status(400).json({ error: 'no_file' });
+  const ext = path.extname(req.file.originalname || '').toLowerCase() || '.jpg';
+  const name = 'b' + Date.now() + ext;
+  fs.renameSync(req.file.path, path.join(bannerUploadDir, name));
+  res.json({ ok: true, url: '/banners/' + name });
+});
+app.get('/api/admin/banners', requireAdmin, (req, res) => {
+  res.json(db.prepare('SELECT * FROM banners ORDER BY sort_order, id').all());
+});
+app.post('/api/admin/banners', requireAdmin, (req, res) => {
+  const b = req.body || {};
+  const r = db.prepare(`INSERT INTO banners (title, image, link_url, sort_order, active)
+    VALUES (?,?,?,?,?)`).run(
+    String(b.title || '').trim(), String(b.image || '').trim(),
+    String(b.link_url || '').trim(), parseInt(b.sort_order) || 0, b.active ? 1 : 0);
+  res.json({ ok: true, id: r.lastInsertRowid });
+});
+app.put('/api/admin/banners/:id', requireAdmin, (req, res) => {
+  const b = req.body || {};
+  db.prepare(`UPDATE banners SET title=?, image=?, link_url=?, sort_order=?, active=? WHERE id=?`).run(
+    String(b.title || '').trim(), String(b.image || '').trim(),
+    String(b.link_url || '').trim(), parseInt(b.sort_order) || 0, b.active ? 1 : 0, req.params.id);
+  res.json({ ok: true });
+});
+app.delete('/api/admin/banners/:id', requireAdmin, (req, res) => {
+  const row = db.prepare('SELECT image FROM banners WHERE id=?').get(req.params.id);
+  db.prepare('DELETE FROM banners WHERE id=?').run(req.params.id);
+  // best-effort: remove the uploaded image file
+  if (row && row.image) {
+    const fp = path.join(__dirname, 'public', String(row.image).replace(/^\//, ''));
+    if (fp.startsWith(path.join(__dirname, 'public', 'banners'))) fs.unlink(fp, () => {});
+  }
+  res.json({ ok: true });
 });
 
 // admin page + SPA fallback

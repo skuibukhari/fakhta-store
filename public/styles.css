@@ -95,7 +95,7 @@ button{font:inherit;cursor:pointer}
 .stars{color:var(--gold);font-size:.82rem;letter-spacing:.05em}
 .stars .rc{color:#9999a8;font-size:.74rem;margin-inline-start:4px}
 .prod-actions{display:flex;gap:8px;margin-top:8px}
-.prod-actions .btn-gold,.prod-actions .btn-ghost{flex:1;padding:11px 6px;font-size:.85rem;margin-top:0}
+.prod-actions .btn-gold,.prod-actions .btn-ghost{flex:1;padding:11px 4px;font-size:.8rem;margin-top:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .prod-actions .btn-ghost{background:linear-gradient(180deg,#E3C565,#D4AF37);color:#1B2A6B;border:none;box-shadow:0 3px 10px rgba(212,175,55,.35)}
 .prod-actions .btn-ghost:hover{filter:brightness(1.06)}
 /* trust badges — light band, gold icons */
@@ -357,4 +357,26 @@ a.btn-gold.btn-sm{color:#fff}
   .flash-sec{padding:16px 14px;border-radius:16px}
   .flash-row .prod-card{flex-basis:160px}
   .flash-head h2{font-size:1.2rem}
+}
+/* ---------- Banner carousel (homepage flyers) ---------- */
+.banner-carousel{position:relative;border-radius:20px;overflow:hidden;margin:26px 0;
+  border:2px solid var(--gold-line);box-shadow:0 10px 30px rgba(27,42,107,.18);background:var(--card2)}
+.bn-track{display:flex;transition:transform .5s ease}
+.bn-slide{flex:0 0 100%;min-width:100%}
+.bn-slide img{width:100%;aspect-ratio:3/1;object-fit:cover;display:block;background:var(--card2)}
+.bn-arrow{position:absolute;top:50%;transform:translateY(-50%);z-index:3;
+  width:42px;height:42px;border-radius:50%;border:2px solid var(--gold);
+  background:rgba(27,42,107,.75);color:var(--gold2);font-size:1.5rem;line-height:1;
+  display:grid;place-items:center;cursor:pointer;backdrop-filter:blur(4px)}
+.bn-arrow:hover{background:var(--royal);color:#fff}
+.bn-prev{inset-inline-start:12px}
+.bn-next{inset-inline-end:12px}
+.bn-dots{position:absolute;bottom:12px;left:50%;transform:translateX(-50%);z-index:3;display:flex;gap:8px}
+.bn-dot{width:10px;height:10px;border-radius:50%;background:rgba(255,255,255,.5);
+  border:1.5px solid var(--gold);cursor:pointer;transition:all .25s}
+.bn-dot.active{background:var(--gold);transform:scale(1.25);box-shadow:0 0 8px rgba(212,175,55,.8)}
+@media(max-width:760px){
+  .banner-carousel{border-radius:14px;margin:20px 0}
+  .bn-slide img{aspect-ratio:2/1}
+  .bn-arrow{width:34px;height:34px;font-size:1.2rem}
 }

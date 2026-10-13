@@ -51,6 +51,8 @@ en: {
   adm_courier:'Courier', adm_tracking:'Tracking No', adm_tracking_ph:'e.g. CN-1234-5678',
   ord_repeat:'Repeat customer', ord_orders:'orders', cust_history:'Customer Order History',
   wa_ask:'Ask on WhatsApp', bill:'Bill / Invoice', wa_bill:'Send bill on WhatsApp',
+  banners:'Banners', add_banner:'Add Banner', edit_banner:'Edit Banner',
+  bn_title:'Banner Title', bn_image:'Banner Image', bn_link:'Link URL', bn_order:'Sort Order', bn_active:'Active',
 },
 ur: {
   nav_home:'ہوم', nav_shop:'دکان', nav_track:'آرڈر ٹریک کریں', nav_cart:'ٹوکری',
@@ -95,6 +97,8 @@ ur: {
   adm_courier:'کورئیر', adm_tracking:'ٹریکنگ نمبر', adm_tracking_ph:'مثلاً CN-1234-5678',
   ord_repeat:'پرانا کسٹمر', ord_orders:'آرڈر', cust_history:'کسٹمر کے آرڈرز',
   wa_ask:'واٹس ایپ پر پوچھیں', bill:'بل / انوائس', wa_bill:'واٹس ایپ پر بل بھیجیں',
+  banners:'بینرز', add_banner:'بینر شامل کریں', edit_banner:'بینر میں ترمیم',
+  bn_title:'بینر کا عنوان', bn_image:'بینر کی تصویر', bn_link:'لنک URL', bn_order:'ترتیب', bn_active:'فعال',
 }};
 let LANG = localStorage.getItem('fakhta_lang') || 'en';
 const T = k => (I18N[LANG] && I18N[LANG][k] !== undefined) ? I18N[LANG][k] : I18N.en[k];
@@ -127,7 +131,7 @@ function copyTrack(btn) {
   else toast(t);
 }
 
-let CATS = [], PRODS = [];
+let CATS = [], PRODS = [], BANNERS = [];
 let STORE = { whatsapp: '', phone: '', name: 'Fakhta' };
 async function loadStore() {
   try { Object.assign(STORE, await api('/api/store-info')); } catch (e) { /* offline */ }
@@ -331,6 +335,25 @@ async function renderHome() {
       </div>
     </div>
   </section>
+  ${BANNERS.length ? `
+  <section class="banner-carousel" id="bnCarousel">
+    <div class="bn-track" id="bnTrack">
+      ${BANNERS.map((b, i) => {
+        const img = `<img src="${esc(rel(b.image))}" alt="${esc(b.title)}" loading="lazy">`;
+        const lu = String(b.link_url || '');
+        const link = !lu ? img
+          : lu.startsWith('http') ? `<a href="${esc(lu)}" target="_blank" rel="noopener">${img}</a>`
+          : `<a href="${esc(lu.startsWith('#') ? lu : '#' + lu)}">${img}</a>`;
+        return `<div class="bn-slide ${i === 0 ? 'active' : ''}" data-ix="${i}">${link}</div>`;
+      }).join('')}
+    </div>
+    ${BANNERS.length > 1 ? `
+    <button class="bn-arrow bn-prev" onclick="bnGo(-1)" aria-label="‹">‹</button>
+    <button class="bn-arrow bn-next" onclick="bnGo(1)" aria-label="›">›</button>
+    <div class="bn-dots" id="bnDots">
+      ${BANNERS.map((_, i) => `<span class="bn-dot ${i === 0 ? 'active' : ''}" onclick="bnShow(${i})"></span>`).join('')}
+    </div>` : ''}
+  </section>` : ''}
   ${flash.length ? `
   <section class="flash-sec">
     <div class="flash-head">
@@ -367,6 +390,40 @@ async function renderHome() {
       `<div><span class="t-ico">${['🚚', '💵', '↩️', '⭐'][i]}</span><span><b>${esc(t[0])}</b><br>${esc(t[1])}</span></div>`).join('')}
   </div>`;
   startFlashCountdown();
+  startBannerCarousel();
+}
+// ---------- banner carousel (homepage flyers) ----------
+let bnTimer = null;
+function bnShow(ix) {
+  const slides = document.querySelectorAll('#bnTrack .bn-slide');
+  const dots = document.querySelectorAll('#bnDots .bn-dot');
+  if (!slides.length) return;
+  ix = ((ix % slides.length) + slides.length) % slides.length;
+  slides.forEach((s, i) => s.classList.toggle('active', i === ix));
+  dots.forEach((d, i) => d.classList.toggle('active', i === ix));
+  const track = document.getElementById('bnTrack');
+  if (track) track.style.transform = `translateX(-${ix * 100}%)`;
+  window._bnIx = ix;
+}
+function bnGo(d) {
+  bnShow((window._bnIx || 0) + d);
+  if (bnTimer) { clearInterval(bnTimer); bnTimer = null; }
+  const slides = document.querySelectorAll('#bnTrack .bn-slide');
+  if (slides.length < 2) return;
+  bnTimer = setInterval(() => {
+    if (!document.getElementById('bnTrack')) { clearInterval(bnTimer); bnTimer = null; return; }
+    bnShow((window._bnIx || 0) + 1);
+  }, 5000);
+}
+function startBannerCarousel() {
+  if (bnTimer) { clearInterval(bnTimer); bnTimer = null; }
+  const slides = document.querySelectorAll('#bnTrack .bn-slide');
+  if (slides.length < 2) return;
+  window._bnIx = 0;
+  bnTimer = setInterval(() => {
+    if (!document.getElementById('bnTrack')) { clearInterval(bnTimer); bnTimer = null; return; }
+    bnShow((window._bnIx || 0) + 1);
+  }, 5000);
 }
 let shopCat = '', shopQ = '';
 async function renderShop() {
@@ -617,6 +674,7 @@ async function renderAdmin(h) {
   if (tab === 'orders') return adminOrders();
   if (tab === 'products') return adminProducts();
   if (tab === 'categories') return adminCategories();
+  if (tab === 'banners') return adminBanners();
   if (tab === 'manual') return adminManual();
   if (tab === 'reports') return adminReports();
   if (tab === 'margin') return adminMargin();
@@ -630,7 +688,7 @@ function adminShell(active, body) {
       <div><button class="btn-ghost" onclick="location.hash='#/'">🏠 Store</button>
       <button class="btn-danger" onclick="adminLogout()">Logout</button></div></div>
     <div class="tabs">
-      ${[['dash', '📊 Dashboard'], ['orders', '📦 Orders'], ['manual', '📝 New Order'], ['products', '🍽️ Products'], ['categories', '🗂️ Categories'], ['reports', '📊 Reports'], ['margin', '💰 Margin/Khata'], ['settings', '⚙️ Settings'], ['password', '🔑 Password']]
+      ${[['dash', '📊 Dashboard'], ['orders', '📦 Orders'], ['manual', '📝 New Order'], ['products', '🍽️ Products'], ['categories', '🗂️ Categories'], ['banners', '🖼️ ' + esc(T('banners'))], ['reports', '📊 Reports'], ['margin', '💰 Margin/Khata'], ['settings', '⚙️ Settings'], ['password', '🔑 Password']]
         .map(t => `<button class="tab ${active === t[0] ? 'active' : ''}" onclick="location.hash='#/admin/${t[0]}'">${t[1]}</button>`).join('')}
     </div>${body}</div>`;
 }
@@ -836,6 +894,55 @@ async function saveCat(id) {
   adminCategories();
 }
 async function delCat(id) { if (confirm('Delete this category?')) { await api('/api/admin/categories/' + id, { method: 'DELETE' }); adminCategories(); } }
+// ---------- banners (homepage flyer carousel) ----------
+async function adminBanners() {
+  const list = await api('/api/admin/banners');
+  adminShell('banners', `
+    <button class="btn-gold" style="margin-bottom:14px" onclick="bannerForm()">+ ${esc(T('add_banner'))}</button>
+    <div style="overflow-x:auto"><table class="tbl"><tr><th></th><th>${esc(T('bn_title'))}</th><th>${esc(T('bn_link'))}</th><th>${esc(T('bn_order'))}</th><th>${esc(T('bn_active'))}</th><th></th></tr>
+    ${list.map(b => `<tr><td><img class="thumb" src="${esc(rel(b.image) || 'logo.png')}" onerror="this.src='logo.png'"></td>
+      <td><b>${esc(b.title || '—')}</b></td>
+      <td><small style="color:var(--ink-dim)">${esc(b.link_url || '—')}</small></td>
+      <td>${b.sort_order}</td><td>${b.active ? '✅' : '⏸️'}</td>
+      <td><button class="btn-ghost" style="padding:6px 12px" onclick='bannerForm(${JSON.stringify(b).replace(/'/g, "&#39;")})'>Edit</button>
+      <button class="btn-danger" style="padding:6px 12px" onclick="delBanner(${b.id})">✕</button></td></tr>`).join('')}
+    </table></div><div id="mForm"></div>`);
+}
+function bannerForm(b) {
+  b = b || {};
+  document.getElementById('mForm').innerHTML = `<div class="modal show" id="mBan"><div class="modal-box">
+    <h3>${b.id ? esc(T('edit_banner')) : esc(T('add_banner'))}</h3>
+    <div class="field"><label>${esc(T('bn_title'))}</label><input id="bf_title" value="${esc(b.title || '')}" placeholder="Eid Sale — 20% Off"></div>
+    <div class="field"><label>${esc(T('bn_image'))}</label>
+      <div style="display:flex;gap:10px"><input id="bf_img" value="${esc(b.image || '')}" placeholder="banners/..." style="flex:1">
+      <label class="btn-ghost" style="padding:10px 16px;cursor:pointer">📤<input type="file" id="bf_file" accept="image/*" style="display:none"></label></div>
+      <small style="color:var(--ink-dim)">Upload a wide banner image (e.g. 1200×400)</small></div>
+    <div class="field"><label>${esc(T('bn_link'))} <small style="color:var(--ink-dim)">(optional — where the banner click goes, e.g. #/shop?sale=1)</small></label><input id="bf_link" value="${esc(b.link_url || '')}" placeholder="#/shop?sale=1"></div>
+    <div class="row2">
+      <div class="field"><label>${esc(T('bn_order'))}</label><input id="bf_sort" type="number" value="${b.sort_order || 0}"></div>
+      <div class="field"><label><input type="checkbox" id="bf_active" ${b.active !== 0 ? 'checked' : ''}> ${esc(T('bn_active'))}</label></div>
+    </div>
+    <div style="display:flex;gap:10px"><button class="btn-gold" onclick="saveBanner(${b.id || 0})">Save</button>
+    <button class="btn-ghost" onclick="document.getElementById('mBan').remove()">Cancel</button></div></div></div>`;
+  document.getElementById('bf_file').onchange = async e => {
+    const f = e.target.files[0]; if (!f) return;
+    const fd = new FormData(); fd.append('image', f);
+    const r = await fetch('/api/admin/banner-upload', { method: 'POST', body: fd });
+    const j = await r.json();
+    if (j.ok) { document.getElementById('bf_img').value = j.url; toast('Uploaded ✓'); } else toast('Upload failed');
+  };
+}
+async function saveBanner(id) {
+  const g = x => document.getElementById(x).value;
+  const body = {
+    title: g('bf_title'), image: g('bf_img'), link_url: g('bf_link'),
+    sort_order: +g('bf_sort') || 0, active: document.getElementById('bf_active').checked
+  };
+  if (!body.image.trim()) { toast('Image required'); return; }
+  await api(id ? '/api/admin/banners/' + id : '/api/admin/banners', { method: id ? 'PUT' : 'POST', body: JSON.stringify(body) });
+  adminBanners();
+}
+async function delBanner(id) { if (confirm('Delete this banner?')) { await api('/api/admin/banners/' + id, { method: 'DELETE' }); adminBanners(); } }
 function adminPassword() {
   adminShell('password', `<div class="form-card">
     <h2>🔑 Change Password</h2>
@@ -1004,6 +1111,7 @@ async function saveSettings() {
   try {
     CATS = await api('/api/categories');
     PRODS = await api('/api/products');
+    try { BANNERS = await api('/api/banners'); } catch (e) { BANNERS = []; }
     await loadStore();
   } catch (e) { console.error('API error', e); }
   updateCartBadge(); renderCart(); applyLang();
