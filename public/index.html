@@ -29,7 +29,9 @@
       <a href="#/track" data-nav data-i18n="nav_track">Track Order</a>
     </nav>
     <div class="topbar-actions">
+      <button class="icon-btn" id="themeToggle" aria-label="Toggle theme" title="🌙/☀️">🌙</button>
       <button class="lang-toggle" id="langToggle" aria-label="Language">اردو</button>
+      <button class="icon-btn cart-btn" id="wishOpen" aria-label="Wishlist">❤️<span class="wish-count" id="wishCount" style="display:none">0</span></button>
       <button class="icon-btn cart-btn" id="cartOpen" aria-label="Cart">🛒<span class="cart-count" id="cartCount">0</span></button>
     </div>
   </div>
@@ -79,6 +81,12 @@
 </div>
 <div id="drawerScrim"></div>
 <div id="toast"></div>
+
+<!-- wishlist drawer -->
+<div id="wishDrawer" class="drawer">
+  <div class="drawer-head"><h3 data-i18n="wishlist">Wishlist</h3><button class="icon-btn" id="wishClose">✕</button></div>
+  <div id="wishItems" class="drawer-body"></div>
+</div>
 
 <script src="app.js"></script>
 <script>if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(()=>{});</script>

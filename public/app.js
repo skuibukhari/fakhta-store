@@ -53,6 +53,11 @@ en: {
   wa_ask:'Ask on WhatsApp', bill:'Bill / Invoice', wa_bill:'Send bill on WhatsApp',
   banners:'Banners', add_banner:'Add Banner', edit_banner:'Edit Banner',
   bn_title:'Banner Title', bn_image:'Banner Image', bn_link:'Link URL', bn_order:'Sort Order', bn_active:'Active',
+  wishlist:'Wishlist', wish_empty:'Your wishlist is empty', wish_added:'Added to wishlist ❤️', wish_removed:'Removed from wishlist',
+  wish_shop:'Browse Products',
+  welcome_title:'Welcome to FAKHTA! 🕊️',
+  welcome_msg:'Premium Sohan Halwa, bakery & daily essentials — delivered to your door across Pakistan. Check out today\'s Flash Sale for the best deals!',
+  welcome_cta:'Shop Flash Sale ⚡', welcome_later:'Maybe later',
 },
 ur: {
   nav_home:'ہوم', nav_shop:'دکان', nav_track:'آرڈر ٹریک کریں', nav_cart:'ٹوکری',
@@ -99,6 +104,11 @@ ur: {
   wa_ask:'واٹس ایپ پر پوچھیں', bill:'بل / انوائس', wa_bill:'واٹس ایپ پر بل بھیجیں',
   banners:'بینرز', add_banner:'بینر شامل کریں', edit_banner:'بینر میں ترمیم',
   bn_title:'بینر کا عنوان', bn_image:'بینر کی تصویر', bn_link:'لنک URL', bn_order:'ترتیب', bn_active:'فعال',
+  wishlist:'پسندیدہ', wish_empty:'آپ کی پسندیدہ فہرست خالی ہے', wish_added:'پسندیدہ میں شامل ہو گیا ❤️', wish_removed:'پسندیدہ سے ہٹا دیا گیا',
+  wish_shop:'مصنوعات دیکھیں',
+  welcome_title:'فاختہ میں خوش آمدید! 🕊️',
+  welcome_msg:'اعلیٰ سوہن حلوہ، بیکری اور روزمرہ کی اشیاء — پاکستان بھر میں آپ کے دروازے تک۔ آج کی فلیش سیل میں بہترین آفرز دیکھیں!',
+  welcome_cta:'فلیش سیل دیکھیں ⚡', welcome_later:'بعد میں',
 }};
 let LANG = localStorage.getItem('fakhta_lang') || 'en';
 const T = k => (I18N[LANG] && I18N[LANG][k] !== undefined) ? I18N[LANG][k] : I18N.en[k];
@@ -252,6 +262,107 @@ function applyLang() {
   renderFooterCats();
 }
 function setLang(l) { LANG = l; localStorage.setItem('fakhta_lang', l); applyLang(); render(); }
+// ---------- theme (dark / light) ----------
+function applyTheme() {
+  const t = localStorage.getItem('fakhta_theme') || 'light';
+  document.documentElement.setAttribute('data-theme', t);
+  const btn = document.getElementById('themeToggle');
+  if (btn) btn.textContent = t === 'dark' ? '☀️' : '🌙';
+  const mc = document.querySelector('meta[name="theme-color"]');
+  if (mc) mc.setAttribute('content', t === 'dark' ? '#0D1640' : '#1B2A6B');
+}
+function toggleTheme() {
+  const cur = document.documentElement.getAttribute('data-theme') || 'light';
+  localStorage.setItem('fakhta_theme', cur === 'dark' ? 'light' : 'dark');
+  applyTheme();
+}
+// ---------- wishlist ----------
+let WISH = [];
+try { WISH = JSON.parse(localStorage.getItem('fakhta_wish') || '[]'); } catch (e) { WISH = []; }
+function saveWish() { localStorage.setItem('fakhta_wish', JSON.stringify(WISH)); updateWishBadge(); }
+function isWished(id) { return WISH.includes(Number(id)); }
+function toggleWish(id) {
+  id = Number(id);
+  const i = WISH.indexOf(id);
+  if (i >= 0) { WISH.splice(i, 1); toast(T('wish_removed')); }
+  else { WISH.push(id); toast(T('wish_added')); }
+  saveWish(); renderWish();
+  document.querySelectorAll(`[data-wish="${id}"]`).forEach(b => {
+    b.classList.toggle('active', isWished(id));
+    b.textContent = isWished(id) ? '❤️' : '🤍';
+  });
+}
+function updateWishBadge() {
+  const el = document.getElementById('wishCount');
+  if (!el) return;
+  el.textContent = WISH.length;
+  el.style.display = WISH.length ? 'grid' : 'none';
+}
+function renderWish() {
+  const box = document.getElementById('wishItems');
+  if (!box) return;
+  const items = WISH.map(id => PRODS.find(p => p.id === Number(id))).filter(Boolean);
+  if (!items.length) {
+    box.innerHTML = `<div class="empty">❤️<br>${esc(T('wish_empty'))}<br><br><button class="btn-gold" onclick="closeWish();location.hash='#/shop'">${esc(T('wish_shop'))}</button></div>`;
+    return;
+  }
+  box.innerHTML = items.map(p => `<div class="ci">
+    <img src="${esc(rel(p.image) || 'logo.png')}" alt="" onerror="this.src='logo.png'" onclick="location.hash='#/product/${p.id}'" style="cursor:pointer">
+    <div class="ci-info"><b>${esc(pname(p))}</b><span>${fmt(p.price)}</span></div>
+    <button class="btn-gold btn-sm" onclick="addToCart(${p.id},1)">${esc(T('add_cart'))}</button>
+    <button class="rm" onclick="toggleWish(${p.id})" aria-label="remove">✕</button>
+  </div>`).join('');
+}
+function openWish() { renderWish(); document.getElementById('wishDrawer').classList.add('open'); document.getElementById('drawerScrim').classList.add('show'); }
+function closeWish() { document.getElementById('wishDrawer').classList.remove('open'); document.getElementById('drawerScrim').classList.remove('show'); }
+// ---------- quick view ----------
+function quickView(id) {
+  const p = PRODS.find(x => x.id === Number(id));
+  if (!p) return;
+  const off = discountPct(p);
+  const box = document.createElement('div');
+  box.className = 'modal show'; box.id = 'qvModal';
+  box.innerHTML = `<div class="modal-box" style="position:relative;max-width:640px">
+    <button class="icon-btn qv-close" onclick="document.getElementById('qvModal').remove()">✕</button>
+    <div class="qv-box">
+      <div style="position:relative">
+        ${off ? `<span class="prod-off">-${off}%</span>` : ''}
+        <img src="${esc(rel(p.image) || 'logo.png')}" alt="${esc(pname(p))}" onerror="this.src='logo.png'">
+      </div>
+      <div class="qv-info">
+        <h2>${esc(pname(p))}</h2>
+        <div class="stars">${stars(4.5)}</div>
+        <div class="prod-price">${fmt(p.price)}${p.old_price > p.price ? `<s>${fmt(p.old_price)}</s>` : ''}</div>
+        <button class="wish-btn ${isWished(p.id) ? 'active' : ''}" data-wish="${p.id}" style="position:static" onclick="toggleWish(${p.id})">${isWished(p.id) ? '❤️' : '🤍'}</button>
+        <p class="desc">${esc(pdesc(p)) || ''}</p>
+        <div class="prod-actions">
+          <button class="btn-gold" onclick="addToCart(${p.id},1);document.getElementById('qvModal').remove()">${esc(T('add_cart'))}</button>
+          <button class="btn-ghost" onclick="addToCart(${p.id},1,true);document.getElementById('qvModal').remove();location.hash='#/checkout'">${esc(T('buy_now'))}</button>
+        </div>
+      </div>
+    </div></div>`;
+  box.onclick = e => { if (e.target === box) box.remove(); };
+  document.body.appendChild(box);
+}
+// ---------- welcome popup (first visit) ----------
+function maybeWelcome() {
+  if (localStorage.getItem('fakhta_welcomed')) return;
+  setTimeout(() => {
+    if (document.querySelector('.modal.show')) return; // don't stack on other modals
+    const box = document.createElement('div');
+    box.className = 'modal show'; box.id = 'welcomeModal';
+    box.innerHTML = `<div class="modal-box welcome-box" style="max-width:440px">
+      <div class="w-ico">🕊️</div>
+      <h2>${esc(T('welcome_title'))}</h2>
+      <p>${esc(T('welcome_msg'))}</p>
+      <div class="cta-row">
+        <button class="btn-gold" onclick="localStorage.setItem('fakhta_welcomed','1');document.getElementById('welcomeModal').remove();location.hash='#/shop?sale=1'">${esc(T('welcome_cta'))}</button>
+        <button class="btn-ghost" onclick="localStorage.setItem('fakhta_welcomed','1');document.getElementById('welcomeModal').remove()">${esc(T('welcome_later'))}</button>
+      </div></div>`;
+    box.onclick = e => { if (e.target === box) { localStorage.setItem('fakhta_welcomed', '1'); box.remove(); } };
+    document.body.appendChild(box);
+  }, 1800);
+}
 // ---------- router ----------
 const view = document.getElementById('view');
 function nav() {
@@ -274,9 +385,13 @@ function nav() {
 window.addEventListener('hashchange', nav);
 // ---------- storefront views ----------
 function prodCard(p) {
+  const wished = isWished(p.id);
   return `<div class="prod-card" onclick="location.hash='#/product/${p.id}'">
     ${p.badge ? `<span class="prod-badge">${esc(p.badge)}</span>` : ''}
-    <img src="${esc(rel(p.image) || 'logo.png')}" alt="${esc(pname(p))}" loading="lazy" onerror="this.src='logo.png'">
+    <button class="wish-btn ${wished ? 'active' : ''}" data-wish="${p.id}" aria-label="wishlist"
+      onclick="event.stopPropagation();toggleWish(${p.id})">${wished ? '❤️' : '🤍'}</button>
+    <img src="${esc(rel(p.image) || 'logo.png')}" alt="${esc(pname(p))}" loading="lazy" onerror="this.src='logo.png'"
+      onclick="event.stopPropagation();quickView(${p.id})" style="cursor:zoom-in" title="Quick view">
     <div class="prod-body">
       <h3>${esc(pname(p))}</h3>
       <div class="prod-price">${fmt(p.price)}${p.old_price > p.price ? `<s>${fmt(p.old_price)}</s>` : ''}</div>
@@ -662,9 +777,12 @@ function closeCart() { document.getElementById('cartDrawer').classList.remove('o
 document.getElementById('cartOpen').onclick = openCart;
 document.getElementById('bnCart').onclick = e => { e.preventDefault(); openCart(); };
 document.getElementById('cartClose').onclick = closeCart;
-document.getElementById('drawerScrim').onclick = closeCart;
+document.getElementById('drawerScrim').onclick = () => { closeCart(); closeWish(); };
 document.getElementById('checkoutBtn').onclick = () => { closeCart(); location.hash = '#/checkout'; };
 document.getElementById('langToggle').onclick = () => setLang(LANG === 'ur' ? 'en' : 'ur');
+document.getElementById('themeToggle').onclick = toggleTheme;
+document.getElementById('wishOpen').onclick = openWish;
+document.getElementById('wishClose').onclick = closeWish;
 // ============================================================ ADMIN ============================================================
 let ADMIN = false;
 async function renderAdmin(h) {
@@ -1107,6 +1225,7 @@ async function saveSettings() {
 }
 // ---------- boot ----------
 (async function init() {
+  applyTheme();
   applyLang();
   try {
     CATS = await api('/api/categories');
@@ -1114,8 +1233,9 @@ async function saveSettings() {
     try { BANNERS = await api('/api/banners'); } catch (e) { BANNERS = []; }
     await loadStore();
   } catch (e) { console.error('API error', e); }
-  updateCartBadge(); renderCart(); applyLang();
+  updateCartBadge(); updateWishBadge(); renderCart(); applyLang(); applyTheme();
   const h = location.hash || '#/';
   if (h === '#/success' || h.startsWith('#/success?')) renderSuccess();
   else nav();
+  maybeWelcome();
 })();
