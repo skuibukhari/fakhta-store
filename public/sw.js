@@ -1,4 +1,4 @@
-const CACHE = 'fakhta-v3';
+const CACHE = 'fakhta-v4';
 self.addEventListener('install', e => {
   e.waitUntil(caches.open(CACHE).then(c => c.addAll(['./', './index.html', './styles.css', './app.js', './manifest.json', './logo.png'])).then(() => self.skipWaiting()));
 });
