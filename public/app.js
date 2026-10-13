@@ -15,6 +15,8 @@ en: {
   hero_cta:'Shop Now', hero_cta2:'Explore Collections',
   cat_title:'Shop by Category', feat_title:'Our Products',
   feat_sub:'Quality groceries & personal care, delivered to your door',
+  flash_sale:'Flash Sale', flash_ends:'Ends in',
+  sale_title:'Sale Campaign', all_title:'All Items',
   see_all:'See All →', add_cart:'Add to Cart', order_now:'Order Now',
   trust1:['Free Delivery','Across Pakistan'], trust2:['Cash on Delivery','Pay at your door'], trust3:['7-Day Returns','Easy & quick'], trust4:['Premium Quality','Handpicked items'],
   search_ph:'Search dinner sets, crockery…', coming_soon:'Coming Soon',
@@ -57,6 +59,8 @@ ur: {
   hero_cta:'ابھی خریدیں', hero_cta2:'کلیکشن دیکھیں',
   cat_title:'کیٹیگری کے حساب سے خریدیں', feat_title:'ہماری مصنوعات',
   feat_sub:'معیاری گروسری اور ذاتی نگہداشت، آپ کے دروازے تک',
+  flash_sale:'فلیش سیل', flash_ends:'ختم ہونے میں',
+  sale_title:'سیل مہم', all_title:'تمام اشیاء',
   see_all:'سب دیکھیں ←', add_cart:'ٹوکری میں ڈالیں', order_now:'آرڈر کریں',
   trust1:['مفت ڈیلیوری','پورے پاکستان میں'], trust2:['کیش آن ڈیلیوری','دروازے پر ادائیگی'], trust3:['7 دن میں واپسی','آسان اور تیز'], trust4:['اعلیٰ معیار','منتخب اشیاء'],
   search_ph:'ڈنر سیٹ، کروکری تلاش کریں…', coming_soon:'جلد آ رہا ہے',
@@ -267,16 +271,51 @@ window.addEventListener('hashchange', nav);
 // ---------- storefront views ----------
 function prodCard(p) {
   return `<div class="prod-card" onclick="location.hash='#/product/${p.id}'">
+    ${p.badge ? `<span class="prod-badge">${esc(p.badge)}</span>` : ''}
     <img src="${esc(rel(p.image) || 'logo.png')}" alt="${esc(pname(p))}" loading="lazy" onerror="this.src='logo.png'">
     <div class="prod-body">
       <h3>${esc(pname(p))}</h3>
       <div class="prod-price">${fmt(p.price)}${p.old_price > p.price ? `<s>${fmt(p.old_price)}</s>` : ''}</div>
       <div class="stars">${stars(4.5)}</div>
+      <div class="prod-actions">
       <button class="btn-gold" onclick="event.stopPropagation();addToCart(${p.id},1)">${esc(T('add_cart'))}</button>
+      <button class="btn-ghost" onclick="event.stopPropagation();addToCart(${p.id},1,true);location.hash='#/checkout'">${esc(T('buy_now'))}</button>
+      </div>
     </div></div>`;
+}
+// discount % for a product (0 if no sale)
+function discountPct(p) {
+  return (p.old_price > p.price && p.old_price > 0) ? Math.round((p.old_price - p.price) / p.old_price * 100) : 0;
+}
+// flash-sale card: prodCard + red discount badge
+function flashCard(p) {
+  const off = discountPct(p);
+  return prodCard(p).replace('<div class="prod-card"', `<div class="prod-card" style="position:relative"`)
+    .replace(/<img /, `${off ? `<span class="prod-off">-${off}%</span>` : ''}<img `);
+}
+// live countdown to midnight for the flash sale header
+let _flashTimer = null;
+function startFlashCountdown() {
+  if (_flashTimer) clearInterval(_flashTimer);
+  const el = document.getElementById('flashDigits');
+  if (!el) return;
+  const tick = () => {
+    const now = new Date(), end = new Date(now);
+    end.setHours(23, 59, 59, 999);
+    let s = Math.max(0, Math.floor((end - now) / 1000));
+    const h = String(Math.floor(s / 3600)).padStart(2, '0'),
+          m = String(Math.floor(s % 3600 / 60)).padStart(2, '0'),
+          sec = String(s % 60).padStart(2, '0');
+    el.textContent = `${h}:${m}:${sec}`;
+  };
+  tick();
+  _flashTimer = setInterval(tick, 1000);
 }
 async function renderHome() {
   const cats = CATS, feat = PRODS;
+  // sale products sorted by discount % (desc)
+  const onSale = PRODS.filter(p => discountPct(p) > 0).sort((a, b) => discountPct(b) - discountPct(a));
+  const flash = onSale.slice(0, 8);
   view.innerHTML = `
   <section class="hero hero-video">
     <video class="hero-bg" autoplay muted loop playsinline preload="metadata" poster="hero-golden-poster.jpg">
@@ -292,8 +331,24 @@ async function renderHome() {
       </div>
     </div>
   </section>
+  ${flash.length ? `
+  <section class="flash-sec">
+    <div class="flash-head">
+      <h2>⚡ ${esc(T('flash_sale'))}</h2>
+      <div class="flash-timer"><span class="t-label">${esc(T('flash_ends'))}</span><span class="t-digits" id="flashDigits">--:--:--</span></div>
+    </div>
+    <div class="flash-row">
+      ${flash.map(flashCard).join('')}
+      <div class="flash-more" onclick="location.hash='#/shop?sale=1'"><span class="arr">→</span><span>${esc(T('see_all'))}</span></div>
+    </div>
+  </section>` : ''}
+  ${onSale.length ? `
+  <section class="section sale-sec">
+    <div class="section-head"><h2>🏷️ ${esc(T('sale_title'))}</h2><a class="link-gold" href="#/shop?sale=1">${esc(T('see_all'))}</a></div>
+    <div class="prod-grid">${onSale.map(prodCard).join('')}</div>
+  </section>` : ''}
   <section class="section">
-    <div class="section-head"><h2>${esc(T('cat_title'))}</h2></div>
+    <div class="section-head"><h2>📦 ${esc(T('cat_title'))}</h2></div>
     <div class="cat-grid">${cats.map(c => `
       <div class="cat-card" onclick="location.hash='#/shop?cat=${c.id}'">
         ${c.coming_soon ? `<span class="soon">${esc(T('coming_soon'))}</span>` : ''}
@@ -303,7 +358,7 @@ async function renderHome() {
       </div>`).join('')}</div>
   </section>
   <section class="section">
-    <div class="section-head"><h2>${esc(T('feat_title'))}</h2><a class="link-gold" href="#/shop">${esc(T('see_all'))}</a></div>
+    <div class="section-head"><h2>✨ ${esc(T('all_title'))}</h2><a class="link-gold" href="#/shop">${esc(T('see_all'))}</a></div>
     <p style="color:var(--ink-dim);margin:-8px 0 14px">${esc(T('feat_sub'))}</p>
     <div class="prod-grid">${feat.map(prodCard).join('')}</div>
   </section>
@@ -311,17 +366,20 @@ async function renderHome() {
     ${[T('trust1'), T('trust2'), T('trust3'), T('trust4')].map((t, i) =>
       `<div><span class="t-ico">${['🚚', '💵', '↩️', '⭐'][i]}</span><span><b>${esc(t[0])}</b><br>${esc(t[1])}</span></div>`).join('')}
   </div>`;
+  startFlashCountdown();
 }
 let shopCat = '', shopQ = '';
 async function renderShop() {
   const m = (location.hash.match(/cat=(\d+)/) || [])[1];
   shopCat = m || '';
+  const saleOnly = /sale=1/.test(location.hash);
   const list = PRODS.filter(p =>
     (!shopCat || String(p.category_id) === String(shopCat)) &&
+    (!saleOnly || discountPct(p) > 0) &&
     (!shopQ || (p.name_en + ' ' + p.name_ur + ' ' + p.desc_en).toLowerCase().includes(shopQ.toLowerCase())));
   view.innerHTML = `
   <section class="section" style="margin-top:6px">
-    <div class="section-head"><h2>${esc(T('nav_shop'))}</h2></div>
+    <div class="section-head"><h2>${saleOnly ? '🏷️ ' + esc(T('sale_title')) : esc(T('nav_shop'))}</h2></div>
     <div class="searchbar"><input id="q" placeholder="${esc(T('search_ph'))}" value="${esc(shopQ)}"></div>
     <div class="chips">
       <button class="chip ${!shopCat ? 'active' : ''}" data-cat="">${LANG === 'ur' ? 'سب' : 'All'}</button>
@@ -334,8 +392,10 @@ async function renderShop() {
   const qi = document.getElementById('q'); qi.focus(); qi.setSelectionRange(qi.value.length, qi.value.length);
 }
 function renderShopKeep() {
+  const saleOnly = /sale=1/.test(location.hash);
   const list = PRODS.filter(p =>
     (!shopCat || String(p.category_id) === String(shopCat)) &&
+    (!saleOnly || discountPct(p) > 0) &&
     (!shopQ || (p.name_en + ' ' + p.name_ur + ' ' + p.desc_en).toLowerCase().includes(shopQ.toLowerCase())));
   document.getElementById('shopGrid').innerHTML = list.length ? list.map(prodCard).join('') : `<p class="empty">${esc(T('tr_none'))}</p>`;
 }
